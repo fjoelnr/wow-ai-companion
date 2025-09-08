@@ -1,0 +1,21 @@
+name: Release
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*.*.*'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Build ZIP (Retail)
+        run: |
+          mkdir -p dist
+          cd addon
+          zip -r ../dist/AICompanion-${GITHUB_REF_NAME}-retail.zip AICompanion
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip

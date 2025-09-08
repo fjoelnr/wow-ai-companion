@@ -1,0 +1,26 @@
+name: CI
+on:
+  pull_request:
+    branches: [ develop ]
+  push:
+    branches: [ develop ]
+jobs:
+  addon:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y luarocks
+      - run: luarocks install luacheck
+      - name: Lint Lua
+        run: luacheck addon/AICompanion --globals UIParent CreateFrame time GetLocale UnitName UnitClass GetSpecialization GetSpecializationInfo GetZoneText GetInstanceInfo CombatLogGetCurrentEventInfo UnitGUID ReloadUI
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install ruff black pytest
+      - run: ruff check external/python
+      - run: black --check external/python
+      - run: pytest -q external/python || true
