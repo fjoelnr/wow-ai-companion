@@ -23,7 +23,7 @@ def parse_sv(text: str) -> dict:
     if start < 0 or end <= 0:
         return {}
     blob = text[start:end]
-    blob = re.sub(r'([a-zA-Z_]\w*)\s*=', r'"\1":', blob)
+    blob = re.sub(r"([a-zA-Z_]\w*)\s*=", r'"\1":', blob)
     blob = blob.replace("'", '"').replace("nil", "null")
     return json.loads(blob)
 
