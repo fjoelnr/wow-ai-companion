@@ -8,6 +8,7 @@ labels: type:bug
 Was ist passiert?
 
 **Reproduktion**
+
 1. …
 2. …
 
@@ -15,6 +16,7 @@ Was ist passiert?
 …
 
 **Umgebung**
+
 - WoW: Retail/Classic + Version
 - Addon-Version:
 - OS:
