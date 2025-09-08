@@ -4,15 +4,28 @@ on:
     branches: [ develop ]
   push:
     branches: [ develop ]
+
+    
 jobs:
   addon:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y luarocks
-      - run: luarocks install luacheck
+
+      - name: Install Lua + LuaRocks
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4 luarocks
+
+      - name: Install luacheck (local, no sudo)
+        run: |
+          luarocks --local install luacheck
+          echo "$HOME/.luarocks/bin" >> $GITHUB_PATH
+
       - name: Lint Lua (with .luacheckrc)
-        run: luacheck addon/AICompanion --config .luacheckrc
+        run: |
+          luacheck --version
+          luacheck addon/AICompanion --config .luacheckrc
 
   python:
     runs-on: ubuntu-latest
