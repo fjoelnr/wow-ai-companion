@@ -4,11 +4,12 @@ AICompanionCharSV = AICompanionCharSV or {}
 
 -- Minimaler Locale-Loader (fallback enUS)
 local function loadLocale()
-  local locale = GetLocale()
   local ok, L = pcall(function() return AICompanionLocale end)
-  if ok and type(L)=="table" then AICompanion.L=L return end
-  -- simple include order (TOC loads files, here just rely on globals)
-  AICompanion.L = AICompanion.L or {}
+  if ok and type(L) == "table" then
+    AICompanion.L = L
+  else
+    AICompanion.L = AICompanion.L or {}
+  end
 end
 
 local f = CreateFrame("Frame")

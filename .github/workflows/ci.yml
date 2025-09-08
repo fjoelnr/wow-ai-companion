@@ -4,15 +4,28 @@ on:
     branches: [ develop ]
   push:
     branches: [ develop ]
+
+    
 jobs:
   addon:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y luarocks
-      - run: luarocks install luacheck
-      - name: Lint Lua
-        run: luacheck addon/AICompanion --globals UIParent CreateFrame time GetLocale UnitName UnitClass GetSpecialization GetSpecializationInfo GetZoneText GetInstanceInfo CombatLogGetCurrentEventInfo UnitGUID ReloadUI
+
+      - name: Install Lua + LuaRocks
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4 luarocks
+
+      - name: Install luacheck (local, no sudo)
+        run: |
+          luarocks --local install luacheck
+          echo "$HOME/.luarocks/bin" >> $GITHUB_PATH
+
+      - name: Lint Lua (with .luacheckrc)
+        run: |
+          luacheck --version
+          luacheck addon/AICompanion --config .luacheckrc
 
   python:
     runs-on: ubuntu-latest
@@ -21,6 +34,9 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - run: pip install ruff black pytest
-      - run: ruff check external/python
-      - run: black --check external/python
-      - run: pytest -q external/python || true
+      - name: Ruff (with ruff.toml)
+        run: ruff check external/python --config ruff.toml
+      - name: Black check
+        run: black --check external/python
+      - name: Pytest (no tests yet; should pass)
+        run: pytest -q || true

@@ -38,6 +38,7 @@ function AICompanion.UI.Init()
   close:SetSize(120, 24)
   close:SetText("Später")
   close:SetScript("OnClick", function() panel:Hide() end)
+  panel.closeBtn = close
 end
 
 function AICompanion.UI.ShowExportPrompt(reason)
@@ -50,7 +51,7 @@ function AICompanion.UI.ShowExportPrompt(reason)
   panel.title:SetText(title)
   panel.text:SetText(string.format(msgT, reason or (L.MANUAL or "manuell")))
   panel.exportBtn:SetText(btnT)
-  -- Der "Später"-Button ist bereits gesetzt
+  if panel.closeBtn then panel.closeBtn:SetText(laterT) end
   panel:Show()
 end
 
@@ -75,7 +76,9 @@ local function buildReco()
   recoFrame.text = text
 
   local btn = CreateFrame("Button", nil, recoFrame, "GameMenuButtonTemplate")
-  btn:SetPoint("BOTTOM", 0, 10); btn:SetSize(160, 24); btn:SetText("Schließen")
+  btn:SetPoint("BOTTOM", 0, 10); btn:SetSize(160, 24)
+  local L = AICompanion.L or {}
+  btn:SetText(L.LATER or "Schließen")
   btn:SetScript("OnClick", function() recoFrame:Hide() end)
 end
 
