@@ -21,8 +21,6 @@
 
 ## gh-CLI Snippets
 Default-Branch:
-```bash
 gh api -X PATCH repos/<owner>/<repo> -f default_branch=develop
-````
 
 Branch-Protection (kann über die UI unter Settings → Branches konfiguriert werden).
