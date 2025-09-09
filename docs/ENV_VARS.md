@@ -11,8 +11,7 @@
 ## MCP-Server (mcp-server/server.py)
 - `LLM_MODE`  : `local` | `api`
 - `OLLAMA_BASE_URL` : z. B. `http://ollama:11434`
-- `OLLAMA_MODEL`    : z. B. `llama3.2`
-- `OLLAMA_FALLBACK_MODEL` : z. B. `mistral-nemo`
+- `OLLAMA_MODEL`    : z. B. `gpt-oss:20b`
+- `OLLAMA_FALLBACK_MODEL` : z. B. `mistral:7b`
 - `OPENAI_API_KEY`  : falls `LLM_MODE=api`
 - `OPENAI_MODEL`    : z. B. `gpt-5-mini`
-````

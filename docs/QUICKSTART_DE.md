@@ -37,8 +37,8 @@ Im Spiel `/aicoach` testen (Panel/Slash-Befehle sichtbar?).
 ```bash
 docker compose up -d --build
 # (einmalig) Modelle für Ollama ziehen:
-curl http://localhost:11434/api/pull -d '{"name":"llama3.2"}'
-curl http://localhost:11434/api/pull -d '{"name":"mistral-nemo"}'
+curl http://localhost:11434/api/pull -d '{"name":"gpt-oss:20b"}'
+curl http://localhost:11434/api/pull -d '{"name":"mistral:7b"}'
 ```
 
 ## 5) MCP-Server prüfen

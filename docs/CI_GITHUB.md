@@ -25,4 +25,4 @@ Default-Branch:
 gh api -X PATCH repos/<owner>/<repo> -f default_branch=develop
 ````
 
-Branch-Protection (PowerShell JSON-Methode siehe Chatverlauf; oder UI unter Settings → Branches).
+Branch-Protection (kann über die UI unter Settings → Branches konfiguriert werden).

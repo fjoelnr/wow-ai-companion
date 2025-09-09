@@ -1,7 +1,5 @@
 # WoW AI Companion (Coach)
 
-Ein **ToS-konformer** World of Warcraft Copilot: gibt **Tipps & Hinweise**, automatisiert **nichts**.
-
 ➡ **Schnellstart:** siehe [`docs/QUICKSTART_DE.md`](docs/QUICKSTART_DE.md)  
 Weitere Doku:
 - Setup Windows (WoW): [`docs/SETUP_WINDOWS_WOW.md`](docs/SETUP_WINDOWS_WOW.md)

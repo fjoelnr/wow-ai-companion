@@ -4,7 +4,7 @@
 Erstelle im Repo-Root:
 ```
 
-OPENAI\_API\_KEY=
+OPENAI_API_KEY=
 
 ````
 
@@ -27,8 +27,8 @@ docker compose up -d --build
 ## 5) Modelle (einmalig) für Ollama
 
 ```bash
-curl http://localhost:11434/api/pull -d '{"name":"llama3.2"}'
-curl http://localhost:11434/api/pull -d '{"name":"mistral-nemo"}'
+curl http://localhost:11434/api/pull -d '{"name":"gpt-oss:20b"}'
+curl http://localhost:11434/api/pull -d '{"name":"mistral:7b"}'
 ```
 
 ## 6) Healthchecks
