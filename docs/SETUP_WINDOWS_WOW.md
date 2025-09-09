@@ -2,20 +2,16 @@
 
 ## 1) WoW-Addon
 Kopiere:
-````
 
 <repo>\addon\AICompanion → <WoW>\_retail_\Interface\AddOns\AICompanion
 
-```
 Im Spiel: `/aicoach` (Hilfe), `/aicoach tips`, Export-Prompt erscheint automatisch bei bestimmten Ereignissen.
 
 ## 2) Combatlog
 Im Spiel einmalig:
-```
 
 /combatlog
 
-````
 Dadurch schreibt WoW fortlaufend `Logs/WoWCombatLog.txt` (live streambar für die externe Analyse).
 
 ## 3) SavedVariables & Logs freigeben
@@ -27,7 +23,7 @@ Empfehlung: SMB (Windows-Freigabe) oder Syncthing.
   - Beispiel SMB-Mount (Linux-Host):
     ```bash
     sudo mkdir -p /srv/svshare
-    sudo mount -t cifs //WINPC/ShareName /srv/svshare -o username=<user>,password=<pwd>,ro,iocharset=utf8
+    sudo mount -t cifs //WINPC/ShareName /srv/svshare -o username=<user>,password=<pwd>,rw,iocharset=utf8
     ```
 
 ## 4) Optional: VS Code Aufgaben

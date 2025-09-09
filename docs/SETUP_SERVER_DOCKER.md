@@ -2,11 +2,8 @@
 
 ## 1) .env (optional, für API-Fallback)
 Erstelle im Repo-Root:
-```
 
-OPENAI_API_KEY=
-
-````
+OPENAI_API_KEY="dein-api-schlüssel-hier"
 
 ## 2) docker-compose.yml (bereit im Repo)
 Services:

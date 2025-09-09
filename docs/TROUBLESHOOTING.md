@@ -9,22 +9,22 @@
 
 ## Watcher findet Dateien nicht
 
-* ENV `SV_PATH`, `SV_WRITE`, `COMBATLOG_PATH` kontrollieren
-* Prüfen, ob `./svshare` richtig gemountet/gesynct ist
+- ENV `SV_PATH`, `SV_WRITE`, `COMBATLOG_PATH` kontrollieren
+- Prüfen, ob `./svshare` richtig gemountet/gesynct ist
 
 ## Keine Tipps im Spiel
 
-* Nach Export `/reload` ausführen (SavedVariables werden geschrieben)
-* Watcher-Logs checken (`ai-watcher`), ob Tipps generiert & zurückgeschrieben wurden
-* `/aicoach tips` öffnet Panel
+- Nach Export `/reload` ausführen (SavedVariables werden geschrieben)
+- Watcher-Logs checken (`ai-watcher`), ob Tipps generiert & zurückgeschrieben wurden
+- `/aicoach tips` öffnet Panel
 
 ## CI: luacheck Permission-Error
 
-* Workflow muss `luarocks --local install luacheck` + `$HOME/.luarocks/bin` → PATH setzen (siehe ci.yml im Repo)
+- Workflow muss `luarocks --local install luacheck` + `$HOME/.luarocks/bin` → PATH setzen (siehe ci.yml im Repo)
 
 ## CI: black meckert
 
-* Lokal Black installieren & ausführen:
+- Lokal Black installieren & ausführen:
 
   ```powershell
   black external/python/watcher.py
