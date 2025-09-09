@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - run: pip install ruff black pytest
+      - run: pip install -r external/python/requirements.txt -r external/python/requirements-dev.txt
       - name: Ruff (with ruff.toml)
         run: ruff check external/python --config ruff.toml
       - name: Black check
