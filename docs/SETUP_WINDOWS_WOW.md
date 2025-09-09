@@ -3,7 +3,7 @@
 ## 1) WoW-Addon
 Kopiere:
 
-<repo>\addon\AICompanion → <WoW>\_retail_\Interface\AddOns\AICompanion
+`<repo>\addon\AICompanion → <WoW>_retail_\Interface\AddOns\AICompanion`
 
 Im Spiel: `/aicoach` (Hilfe), `/aicoach tips`, Export-Prompt erscheint automatisch bei bestimmten Ereignissen.
 
