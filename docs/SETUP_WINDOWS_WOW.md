@@ -10,7 +10,7 @@ Im Spiel: `/aicoach` (Hilfe), `/aicoach tips`, Export-Prompt erscheint automatis
 ## 2) Combatlog
 Im Spiel einmalig:
 
-/combatlog
+`/combatlog`
 
 Dadurch schreibt WoW fortlaufend `Logs/WoWCombatLog.txt` (live streambar für die externe Analyse).
 
