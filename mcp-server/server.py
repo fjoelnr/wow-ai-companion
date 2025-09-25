@@ -47,14 +47,17 @@ def to_bullets(text: str, n: int) -> List[str]:
     tips = []
     for line in text.splitlines():
         s = line.strip()
-        if not s: continue
+        if not s: 
+            continue
         if s[0] in "-•*":
             s = s.lstrip("-•* ").strip()
-            if s: tips.append(s)
+            if s:
+                tips.append(s)
     if not tips:
         for line in text.splitlines():
             m = re.match(r"^\s*\d+\.\s*(.+)$", line.strip())
-            if m: tips.append(m.group(1).strip())
+            if m:
+                tips.append(m.group(1).strip())
     return tips[:n] if tips else []
 
 class Session(BaseModel):
@@ -78,6 +81,22 @@ class CombatEvent(BaseModel):
     raw: str
 
 LIVE_EVENTS: List[CombatEvent] = []
+
+@app.get("/")
+def root():
+    return {
+        "status": "ok",
+        "service": "wow-ai-mcp",
+        "endpoints": ["/tools/ping", "/tools/generate_tips", "/tools/ingest_combat_event", "/tools/live_events", "/healthz"],
+    }
+
+@app.get("/tools/ping")
+def ping():
+    return {"pong": True}
+
+@app.get("/healthz")
+def health():
+    return {"ok": True}
 
 @app.post("/tools/generate_tips", response_model=GenResp)
 def generate_tips(req: GenReq):
