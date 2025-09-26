@@ -84,10 +84,14 @@ LIVE_EVENTS: List[CombatEvent] = []
 
 @app.get("/")
 def root():
+    endpoints = sorted([
+        route.path for route in app.routes
+        if isinstance(route, APIRoute) and route.path != "/"
+    ])
     return {
         "status": "ok",
         "service": "wow-ai-mcp",
-        "endpoints": ["/tools/ping", "/tools/generate_tips", "/tools/ingest_combat_event", "/tools/live_events", "/healthz"],
+        "endpoints": endpoints,
     }
 
 @app.get("/tools/ping")
