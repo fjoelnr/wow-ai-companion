@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "ts": { "type": "number" },
+    "player": { "type": "string" },
+    "class": { "type": "string" },
+    "specId": { "type": "number" },
+    "zone": { "type": "string" },
+    "fights": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "locale": { "type": "string" }
+  },
+  "required": ["ts", "player", "class", "zone"]
+}
