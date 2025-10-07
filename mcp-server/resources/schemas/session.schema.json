@@ -12,5 +12,5 @@
     },
     "locale": { "type": "string" }
   },
-  "required": ["ts", "player", "class", "zone"]
+  "required": []
 }
