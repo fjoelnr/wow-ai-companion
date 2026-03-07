@@ -19,10 +19,12 @@ export function useWebSocket({ path, onMessage }: UseWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const shouldReconnect = useRef(true);
   const onMessageRef = useRef(onMessage);
   onMessageRef.current = onMessage;
 
   const connect = useCallback(() => {
+    if (!shouldReconnect.current) return;
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const host = window.location.host;
     const url = `${protocol}//${host}${path}`;
@@ -33,6 +35,11 @@ export function useWebSocket({ path, onMessage }: UseWebSocketOptions) {
 
     ws.onopen = () => {
       setStatus("connected");
+      if (reconnectTimer.current) {
+        clearTimeout(reconnectTimer.current);
+        reconnectTimer.current = null;
+      }
+      if (pingTimer.current) clearInterval(pingTimer.current);
       // Start ping keepalive
       pingTimer.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
@@ -53,7 +60,10 @@ export function useWebSocket({ path, onMessage }: UseWebSocketOptions) {
     ws.onclose = () => {
       setStatus("disconnected");
       if (pingTimer.current) clearInterval(pingTimer.current);
+      pingTimer.current = null;
+      if (!shouldReconnect.current) return;
       // Auto-reconnect
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       reconnectTimer.current = setTimeout(connect, RECONNECT_DELAY);
     };
 
@@ -63,8 +73,10 @@ export function useWebSocket({ path, onMessage }: UseWebSocketOptions) {
   }, [path]);
 
   useEffect(() => {
+    shouldReconnect.current = true;
     connect();
     return () => {
+      shouldReconnect.current = false;
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       if (pingTimer.current) clearInterval(pingTimer.current);
       wsRef.current?.close();

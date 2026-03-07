@@ -7,7 +7,7 @@
 | `SV_PATH` | (required) | Pfad zu AICompanion.lua (SavedVariables, lesen) |
 | `SV_WRITE` | `= SV_PATH` | Pfad zu AICompanion.lua (Tipps zurückschreiben) — meist identisch |
 | `COMBATLOG_PATH` | (required) | Pfad zu WoWCombatLog.txt |
-| `MCP_URL` | `http://mcp:8080` | Basis-URL des MCP-Servers |
+| `MCP_URL` | `http://mcp:9090` | Basis-URL des MCP-Servers |
 | `TIPS_COUNT` | `5` | Anzahl Tipps pro Analyse |
 | `POLL_INTERVAL` | `2.0` | Abfrage-Intervall in Sekunden |
 

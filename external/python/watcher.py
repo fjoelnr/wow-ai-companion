@@ -9,6 +9,7 @@ Supports WoW's timestamped combat log naming: WoWCombatLog-MMDDYY_HHMMSS.txt
 import glob
 import io
 import json
+import logging
 import os
 import pathlib
 import re
@@ -31,6 +32,16 @@ POLL_INTERVAL = float(os.getenv("POLL_INTERVAL", "2.0"))
 # No-encounter timeout: if we're tracking a non-boss fight and see no
 # events for this many seconds, force-close the fight.
 COMBAT_TIMEOUT = float(os.getenv("COMBAT_TIMEOUT", "15.0"))
+
+logging.basicConfig(
+    level=os.getenv("WATCHER_LOG_LEVEL", "INFO"),
+    format="%(asctime)s [watcher] %(levelname)s: %(message)s",
+)
+log = logging.getLogger("watcher")
+
+_MARKER_START = "-- AICOACH_PENDING_RECO_START"
+_MARKER_END = "-- AICOACH_PENDING_RECO_END"
+_HTTP = requests.Session()
 
 
 # ── SavedVariables helpers ──────────────────────────────────────────────
@@ -210,21 +221,35 @@ def parse_sv(text: str) -> dict:
         return {}
 
 
-def write_reco(tips: list[str]) -> None:
-    out = "AICompanionSV = AICompanionSV or {}\n"
+def write_reco(tips: list[str], base_text: str = "") -> None:
+    """Write/replace pending recommendations in SavedVariables safely.
+
+    We keep existing SavedVariables content and only replace our own managed
+    block, so session history is not lost.
+    """
+    out = f"{_MARKER_START}\n"
     out += "AICompanionCharSV = AICompanionCharSV or {}\n"
     out += 'AICompanionCharSV["pendingReco"] = {\n'
     for tip in tips:
         out += f"  {json.dumps(tip, ensure_ascii=False)},\n"
     out += "}\n"
-    pathlib.Path(SV_WRITE).write_text(out, encoding="utf-8")
+    out += f"{_MARKER_END}\n"
+
+    current = base_text
+    if not current and pathlib.Path(SV_WRITE).exists():
+        current = pathlib.Path(SV_WRITE).read_text(encoding="utf-8", errors="ignore")
+    if current:
+        pattern = rf"\n?{re.escape(_MARKER_START)}.*?{re.escape(_MARKER_END)}\n?"
+        current = re.sub(pattern, "\n", current, flags=re.DOTALL)
+        current = current.rstrip() + "\n\n"
+    pathlib.Path(SV_WRITE).write_text(current + out, encoding="utf-8")
 
 
 # ── MCP API calls ──────────────────────────────────────────────────────
 
 
 def mcp_generate_tips(session: dict, tips_count: int) -> list[str]:
-    resp = requests.post(
+    resp = _HTTP.post(
         f"{MCP_URL}/tools/generate_tips",
         json={"session": session, "tips": tips_count},
         timeout=60,
@@ -236,25 +261,29 @@ def mcp_generate_tips(session: dict, tips_count: int) -> list[str]:
 def mcp_send_combat_event(event: dict) -> None:
     """Send a structured combat event to the MCP server."""
     try:
-        requests.post(f"{MCP_URL}/api/combat-event", json=event, timeout=5)
-    except Exception:
-        pass  # best-effort; never crash the loop
+        resp = _HTTP.post(f"{MCP_URL}/api/combat-event", json=event, timeout=5)
+        if not resp.ok:
+            log.warning("[EVENT] MCP rejected combat event: HTTP %s", resp.status_code)
+    except Exception as exc:
+        log.warning("[EVENT] Failed to send combat event: %s", exc)
 
 
 def mcp_send_fight_summary(summary: dict) -> None:
     """Send a completed fight summary to the MCP server."""
     try:
-        requests.post(f"{MCP_URL}/api/fight-summary", json=summary, timeout=10)
+        _HTTP.post(f"{MCP_URL}/api/fight-summary", json=summary, timeout=10)
     except Exception as exc:
-        print(f"[FIGHT] Failed to send fight summary: {exc}")
+        log.error("[FIGHT] Failed to send fight summary: %s", exc)
 
 
 def mcp_send_session(session: dict) -> None:
     """Push session data to the MCP server."""
     try:
-        requests.post(f"{MCP_URL}/api/session", json={"session": session}, timeout=5)
-    except Exception:
-        pass
+        resp = _HTTP.post(f"{MCP_URL}/api/session", json={"session": session}, timeout=5)
+        if not resp.ok:
+            log.warning("[SV] MCP rejected session update: HTTP %s", resp.status_code)
+    except Exception as exc:
+        log.warning("[SV] Failed to push session update: %s", exc)
 
 
 # ── CombatLog file detection ─────────────────────────────────────────
@@ -366,16 +395,17 @@ class Tailer:
 
 
 def main() -> None:
-    print(f"Watcher gestartet. MCP={MCP_URL}")
-    print(f"  SV_PATH={SV_PATH}")
-    print(f"  COMBATLOG_PATH={COMBATLOG_PATH}")
+    log.info("Watcher gestartet. MCP=%s", MCP_URL)
+    log.info("  SV_PATH=%s", SV_PATH)
+    log.info("  SV_WRITE=%s", SV_WRITE)
+    log.info("  COMBATLOG_PATH=%s", COMBATLOG_PATH)
 
     # Determine combat log directory
     logs_dir = COMBATLOG_DIR
     if not logs_dir:
         # Derive from COMBATLOG_PATH
         logs_dir = os.path.dirname(COMBATLOG_PATH)
-    print(f"  COMBATLOG_DIR={logs_dir}")
+    log.info("  COMBATLOG_DIR=%s", logs_dir)
 
     # If COMBATLOG_PATH points to a specific existing file, pass it explicitly
     explicit = COMBATLOG_PATH if os.path.isfile(COMBATLOG_PATH) else None
@@ -383,11 +413,12 @@ def main() -> None:
     # Find initial file
     latest = find_latest_combatlog(logs_dir)
     if latest:
-        print(f"  Latest CombatLog: {os.path.basename(latest)}")
+        log.info("  Latest CombatLog: %s", os.path.basename(latest))
     else:
-        print("  No CombatLog files found yet (will auto-detect when WoW starts logging)")
+        log.info("  No CombatLog files found yet (will auto-detect when WoW starts logging)")
 
     last_sv_mtime = 0.0
+    last_tip_session_ts: int | float | None = None
     tail = Tailer(logs_dir, explicit_path=explicit)
     aggregator = FightAggregator()
     last_event_wall = 0.0    # wall clock: when we last processed an event
@@ -409,14 +440,29 @@ def main() -> None:
                         session = sessions[-1]
                         # Push session to MCP (for WebSocket broadcast)
                         mcp_send_session(session)
-                        print(
-                            f"[SV] Session: {session.get('player', '?')} "
-                            f"({session.get('class', '?')}) "
-                            f"iLvl {session.get('ilvl', '?')} "
-                            f"@ {session.get('zone', '?')}"
+                        log.info(
+                            "[SV] Session: %s (%s) iLvl %s @ %s",
+                            session.get("player", "?"),
+                            session.get("class", "?"),
+                            session.get("ilvl", "?"),
+                            session.get("zone", "?"),
                         )
+
+                        # Generate tips once per exported session.
+                        session_ts = session.get("ts")
+                        if session_ts != last_tip_session_ts:
+                            try:
+                                tips = mcp_generate_tips(session, TIPS_COUNT)
+                                if tips:
+                                    write_reco(tips, base_text=raw)
+                                    log.info("[SV] Wrote %d recommendations to pendingReco", len(tips))
+                                else:
+                                    log.warning("[SV] MCP returned no tips for session ts=%s", session_ts)
+                                last_tip_session_ts = session_ts
+                            except Exception as exc:
+                                log.error("[SV] Failed to generate/write tips: %s", exc)
         except Exception as exc:
-            print(f"SV-Fehler: {exc}")
+            log.error("SV-Fehler: %s", exc)
 
         # ── 2) Stream combat log (structured) ──────────────────────
         try:
@@ -446,13 +492,15 @@ def main() -> None:
                 if finished:
                     summary = finished.to_dict()
                     mcp_send_fight_summary(summary)
-                    print(
-                        f"[FIGHT] {finished.encounter_name or 'Trash'} "
-                        f"({finished.result}) – {finished.duration_sec:.0f}s – "
-                        f"{len(finished.players)} players"
+                    log.info(
+                        "[FIGHT] %s (%s) - %.0fs - %d players",
+                        finished.encounter_name or "Trash",
+                        finished.result,
+                        finished.duration_sec,
+                        len(finished.players),
                     )
         except Exception as exc:
-            print(f"CombatLog-Fehler: {exc}")
+            log.error("CombatLog-Fehler: %s", exc)
 
         # ── 3) Timeout: end stale non-encounter fights ─────────────
         # Use wall clock to detect timeout, but CombatLog timestamp for fight end time
@@ -461,9 +509,7 @@ def main() -> None:
                 finished = aggregator.force_end(last_event_log_ts)
                 if finished:
                     mcp_send_fight_summary(finished.to_dict())
-                    print(
-                        f"[FIGHT] Timeout – fight ended after {COMBAT_TIMEOUT}s idle"
-                    )
+                    log.info("[FIGHT] Timeout - fight ended after %ss idle", COMBAT_TIMEOUT)
 
         time.sleep(POLL_INTERVAL)
 

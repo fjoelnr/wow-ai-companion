@@ -50,6 +50,7 @@ services:
       - POLL_INTERVAL=2.0
     volumes:
       - "D:/Games/World of Warcraft/_retail_:/wow:ro"
+      - "D:/Games/World of Warcraft/_retail_/WTF/Account/103722624#1/SavedVariables/AICompanion.lua:/wow/WTF/Account/103722624#1/SavedVariables/AICompanion.lua"
     depends_on:
       - mcp
 
