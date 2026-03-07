@@ -1,0 +1,698 @@
+/* WoW AI Companion – Second Screen Dashboard
+   Dark theme inspired by WoW UI aesthetics */
+
+:root {
+  --bg-primary: #0a0a12;
+  --bg-panel: #12121e;
+  --bg-panel-header: #1a1a2e;
+  --border-color: #2a2a44;
+  --border-glow: #3a3a5e;
+  --text-primary: #e0e0e0;
+  --text-secondary: #888899;
+  --text-muted: #555566;
+  --accent-blue: #00aaff;
+  --accent-green: #00ff88;
+  --accent-red: #ff4444;
+  --accent-gold: #ffcc00;
+  --accent-purple: #aa66ff;
+  --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.4;
+  overflow: hidden;
+  height: 100vh;
+}
+
+#root {
+  height: 100vh;
+}
+
+/* ── Dashboard Layout ─────────────────────────────────────────────── */
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.dashboard__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 8px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.dashboard__col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+
+/* ── Status Bar ───────────────────────────────────────────────────── */
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--bg-panel-header);
+  border-bottom: 1px solid var(--border-color);
+  min-height: 44px;
+}
+
+.status-bar__left,
+.status-bar__center,
+.status-bar__right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-bar__title {
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--accent-gold);
+}
+
+.status-bar__indicator {
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+
+.status-bar__combat {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.status-bar__combat--active {
+  color: var(--accent-red);
+  font-weight: 700;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.status-bar__right {
+  font-size: 13px;
+  font-family: var(--font-mono);
+}
+
+/* ── Panel (shared) ───────────────────────────────────────────────── */
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel h3 {
+  padding: 8px 12px;
+  background: var(--bg-panel-header);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent-blue);
+}
+
+.panel__empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ── DPS Meter ────────────────────────────────────────────────────── */
+
+.dps-meter {
+  flex: 1;
+  min-height: 120px;
+}
+
+.dps-meter__encounter {
+  font-weight: 400;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-transform: none;
+}
+
+.dps-meter__list {
+  padding: 4px 8px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.dps-bar {
+  display: grid;
+  grid-template-columns: 100px 1fr 60px;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+
+.dps-bar__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.dps-bar__track {
+  height: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.dps-bar__fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+  opacity: 0.8;
+}
+
+.dps-bar__value {
+  text-align: right;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+/* ── Combat Feed ──────────────────────────────────────────────────── */
+
+.combat-feed {
+  flex: 1;
+  min-height: 150px;
+}
+
+.combat-feed__list {
+  padding: 4px 8px;
+  overflow-y: auto;
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.combat-feed__event {
+  display: flex;
+  gap: 8px;
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.combat-feed__type {
+  min-width: 100px;
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.combat-feed__detail {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Fight History ────────────────────────────────────────────────── */
+
+.fight-history {
+  flex: 1;
+  min-height: 150px;
+}
+
+.fight-history__list {
+  padding: 4px 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.fight-history__item {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.fight-history__header {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.fight-history__header:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.fight-history__name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.fight-history__meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.fight-history__details {
+  padding: 8px 12px 12px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.fight-history__stats {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.fight-history__players {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fight-history__player {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  padding: 2px 0;
+}
+
+/* ── Player Card ──────────────────────────────────────────────────── */
+
+.player-card {
+  flex-shrink: 0;
+}
+
+.player-card__info {
+  padding: 12px;
+}
+
+.player-card__name {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.player-card__details {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.player-card__location {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.player-card__professions {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.player-card__quests {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.player-card__ready {
+  color: var(--accent-green);
+  font-weight: 600;
+}
+
+/* ── Fight Analysis ──────────────────────────────────────────────── */
+
+.analysis {
+  flex-shrink: 0;
+  max-height: 50vh;
+}
+
+.analysis h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent-gold);
+}
+
+.analysis__encounter-tag {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.analysis__rating {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.analysis__content {
+  padding: 10px 12px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.analysis__summary {
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-left: 3px solid var(--accent-gold);
+  border-radius: 2px;
+}
+
+.analysis__stats-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.analysis__section {
+  margin-bottom: 10px;
+}
+
+.analysis__section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+  padding: 0;
+  background: none;
+  border: none;
+}
+
+.analysis__section-title--good {
+  color: var(--accent-green);
+}
+
+.analysis__section-title--warn {
+  color: var(--accent-red);
+}
+
+.analysis__section-title--tip {
+  color: var(--accent-blue);
+}
+
+.analysis__list {
+  list-style: none;
+  padding: 0;
+}
+
+.analysis__item {
+  font-size: 12px;
+  padding: 3px 0 3px 14px;
+  position: relative;
+  line-height: 1.4;
+}
+
+.analysis__item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 9px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.analysis__item--good::before {
+  background: var(--accent-green);
+}
+
+.analysis__item--warn::before {
+  background: var(--accent-red);
+}
+
+.analysis__item--tip::before {
+  background: var(--accent-blue);
+}
+
+/* Analysis buttons */
+.analysis__btn {
+  display: inline-block;
+  padding: 6px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  background: var(--bg-panel-header);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-right: 8px;
+  margin-top: 4px;
+}
+
+.analysis__btn:hover {
+  background: var(--border-color);
+  border-color: var(--border-glow);
+}
+
+.analysis__btn--analyze {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+.analysis__btn--analyze:hover {
+  background: rgba(255, 204, 0, 0.12);
+}
+
+.analysis__btn--dismiss {
+  color: var(--text-muted);
+}
+
+.analysis__btn--spells {
+  margin-top: 8px;
+  width: 100%;
+  text-align: center;
+  border-color: var(--accent-purple);
+  color: var(--accent-purple);
+}
+
+.analysis__btn--spells:hover {
+  background: rgba(170, 102, 255, 0.12);
+}
+
+/* Analysis pending / loading */
+.analysis__pending {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.analysis__fight-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.analysis__encounter {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.analysis__fight-meta {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.analysis__loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.analysis__spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--accent-gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Spell Breakdown ─────────────────────────────────────────────── */
+
+.spell-breakdown {
+  margin-top: 10px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 10px;
+}
+
+.spell-breakdown__player {
+  margin-bottom: 10px;
+}
+
+.spell-breakdown__player-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0 4px 8px;
+  border-left: 3px solid var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.spell-breakdown__name {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.spell-breakdown__meta {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.spell-breakdown__deaths {
+  color: var(--accent-red);
+}
+
+.spell-breakdown__interrupts {
+  color: var(--accent-blue);
+}
+
+.spell-breakdown__dispels {
+  color: var(--accent-purple);
+}
+
+.spell-breakdown__spells {
+  padding-left: 12px;
+}
+
+.spell-breakdown__spell {
+  display: grid;
+  grid-template-columns: 140px 1fr 80px;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+.spell-breakdown__spell-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.spell-breakdown__spell-bar-track {
+  height: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.spell-breakdown__spell-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  opacity: 0.7;
+  transition: width 0.3s ease;
+}
+
+.spell-breakdown__spell-stats {
+  text-align: right;
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+/* ── Fight History Analyze Button ────────────────────────────────── */
+
+.fight-history__analyze-btn {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 5px 12px;
+  border: 1px solid var(--accent-gold);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--accent-gold);
+  font-size: 11px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.fight-history__analyze-btn:hover {
+  background: rgba(255, 204, 0, 0.12);
+}
+
+/* ── Scrollbar styling ────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-glow);
+}

@@ -1,48 +1,39 @@
-version: "3.9"
-
 services:
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ai-ollama
-    restart: unless-stopped
-    ports:
-      - "11434:11434"
-    environment:
-      - OLLAMA_KEEP_ALIVE=5m
-    volumes:
-      - ollama_models:/root/.ollama
-    # GPU-Profile (genau eins aktivieren, sonst beide auskommentiert lassen):
-    # NVIDIA:
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - capabilities: ["gpu"]
-    #           driver: "nvidia"
-    # AMD (ROCm):
-    # devices:
-    #   - /dev/kfd
-    #   - /dev/dri
-    # group_add:
-    #   - "video"
+  # ── Ollama (optional – auskommentiert wenn nativ installiert) ──────
+  # Ollama läuft bereits nativ auf dem Host (Port 11434).
+  # Nur aktivieren wenn kein lokales Ollama vorhanden ist.
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: ai-ollama
+  #   restart: unless-stopped
+  #   ports:
+  #     - "11434:11434"
+  #   environment:
+  #     - OLLAMA_KEEP_ALIVE=5m
+  #   volumes:
+  #     - ollama_models:/root/.ollama
 
   mcp:
     build: ./mcp-server
     container_name: ai-mcp
     restart: unless-stopped
     environment:
-      - LLM_MODE=local           # local|api
-      - OLLAMA_BASE_URL=http://ollama:11434
-      - OLLAMA_MODEL=gpt-oss:20b
-      - OLLAMA_FALLBACK_MODEL=mistral:7b
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_MODEL=gpt-5-mini
+      # LLM provider: ollama | openai | openrouter
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      # Ollama: host.docker.internal zeigt auf den Host (natives Ollama)
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:8b}
+      - OLLAMA_FALLBACK_MODEL=${OLLAMA_FALLBACK_MODEL:-}
+      # OpenAI settings
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      # OpenRouter settings
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-anthropic/claude-sonnet-4}
     ports:
-      - "8080:8080"
+      - "9090:9090"
     volumes:
       - ./svshare:/svshare
-    depends_on:
-      - ollama
 
   watcher:
     build:
@@ -51,16 +42,22 @@ services:
     container_name: ai-watcher
     restart: unless-stopped
     environment:
-      - SV_PATH=/svshare/WTF/Account/YOUR/SavedVariables/AICompanion.lua
-      - SV_WRITE=/svshare/WTF/Account/YOUR/SavedVariables/AICompanion.lua
-      - COMBATLOG_PATH=/svshare/Logs/WoWCombatLog.txt
-      - MCP_URL=http://mcp:8080
+      - SV_PATH=/wow/WTF/Account/103722624#1/SavedVariables/AICompanion.lua
+      - SV_WRITE=/wow/WTF/Account/103722624#1/SavedVariables/AICompanion.lua
+      - COMBATLOG_DIR=/wow/Logs
+      - MCP_URL=http://mcp:9090
       - TIPS_COUNT=5
       - POLL_INTERVAL=2.0
     volumes:
-      - ./svshare:/svshare
+      - "D:/Games/World of Warcraft/_retail_:/wow:ro"
     depends_on:
       - mcp
 
-volumes:
-  ollama_models:
+  webui:
+    build: ./webui
+    container_name: ai-webui
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - mcp

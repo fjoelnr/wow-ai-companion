@@ -20,6 +20,7 @@ Thumbs.db
 # Editors
 .idea/
 .vscode/
+.claude/
 
 # Local shares (nicht ins Repo)
 svshare/

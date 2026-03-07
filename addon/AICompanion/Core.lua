@@ -38,17 +38,10 @@ f:SetScript("OnEvent", function(_, event, arg1)
 end)
 
 function AICompanion.ExportSession()
-  local spec = GetSpecialization() or 1
-  local specId = select(1, GetSpecializationInfo(spec)) or 0
-  local s = {
-    ts = time(),
-    player = UnitName("player"),
-    class = select(2, UnitClass("player")),
-    specId = specId,
-    zone = GetZoneText(),
-    fights = AICompanion.Combat and AICompanion.Combat.Flush() or {},
-    locale = GetLocale(),
-  }
+  -- Build a rich snapshot using Midnight-safe APIs (Data.lua)
+  local s = AICompanion.Data.BuildSnapshot()
+  -- Backward compat: flatten zone for older watcher versions
+  s.zone = s.location and s.location.zone or GetZoneText()
   table.insert(AICompanionSV.sessions, s)
 end
 

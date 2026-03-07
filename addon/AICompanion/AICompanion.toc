@@ -1,13 +1,14 @@
-## Interface: 11505
+## Interface: 120000
 ## Title: AI Companion (Coach)
-## Notes: Post-Fight/Exploration Tipps (keine Automatisierung)
+## Notes: AI-powered Second-Screen Copilot – tips, analysis, no automation.
 ## Author: Fjölnir & Team
-## Version: 0.1.0
+## Version: 0.2.0
 ## SavedVariables: AICompanionSV
 ## SavedVariablesPerCharacter: AICompanionCharSV
 
 Core.lua
 Combat.lua
+Data.lua
 UI.lua
 Locales/enUS.lua
 Locales/deDE.lua
