@@ -221,6 +221,15 @@ def parse_sv(text: str) -> dict:
         return {}
 
 
+def normalize_session(session: dict) -> dict:
+    """Normalize parser output to match MCP schema expectations."""
+    normalized = dict(session)
+    for key in ("fights", "activeQuests", "professions"):
+        if isinstance(normalized.get(key), dict):
+            normalized[key] = []
+    return normalized
+
+
 def write_reco(tips: list[str], base_text: str = "") -> None:
     """Write/replace pending recommendations in SavedVariables safely.
 
@@ -437,7 +446,7 @@ def main() -> None:
                     sv = parse_sv(raw)
                     sessions = sv.get("sessions", [])
                     if sessions:
-                        session = sessions[-1]
+                        session = normalize_session(sessions[-1])
                         # Push session to MCP (for WebSocket broadcast)
                         mcp_send_session(session)
                         log.info(
