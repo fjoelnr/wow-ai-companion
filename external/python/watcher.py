@@ -285,14 +285,17 @@ def mcp_send_fight_summary(summary: dict) -> None:
         log.error("[FIGHT] Failed to send fight summary: %s", exc)
 
 
-def mcp_send_session(session: dict) -> None:
+def mcp_send_session(session: dict) -> bool:
     """Push session data to the MCP server."""
     try:
         resp = _HTTP.post(f"{MCP_URL}/api/session", json={"session": session}, timeout=5)
         if not resp.ok:
             log.warning("[SV] MCP rejected session update: HTTP %s", resp.status_code)
+            return False
+        return True
     except Exception as exc:
         log.warning("[SV] Failed to push session update: %s", exc)
+        return False
 
 
 # ── CombatLog file detection ─────────────────────────────────────────
@@ -428,6 +431,14 @@ def main() -> None:
 
     last_sv_mtime = 0.0
     last_tip_session_ts: int | float | None = None
+    pending_session: dict | None = None
+    pending_raw_sv: str = ""
+    pending_session_ready = False
+    pending_tips_ready = False
+    retry_next_session_at = 0.0
+    retry_next_tips_at = 0.0
+    retry_backoff_session_sec = 5.0
+    retry_backoff_tips_sec = 5.0
     tail = Tailer(logs_dir, explicit_path=explicit)
     aggregator = FightAggregator()
     last_event_wall = 0.0    # wall clock: when we last processed an event
@@ -446,32 +457,53 @@ def main() -> None:
                     sv = parse_sv(raw)
                     sessions = sv.get("sessions", [])
                     if sessions:
-                        session = normalize_session(sessions[-1])
-                        # Push session to MCP (for WebSocket broadcast)
-                        mcp_send_session(session)
+                        pending_session = normalize_session(sessions[-1])
+                        pending_raw_sv = raw
+                        pending_session_ready = True
+                        pending_tips_ready = True
+                        retry_next_session_at = 0.0
+                        retry_next_tips_at = 0.0
+
                         log.info(
                             "[SV] Session: %s (%s) iLvl %s @ %s",
-                            session.get("player", "?"),
-                            session.get("class", "?"),
-                            session.get("ilvl", "?"),
-                            session.get("zone", "?"),
+                            pending_session.get("player", "?"),
+                            pending_session.get("class", "?"),
+                            pending_session.get("ilvl", "?"),
+                            pending_session.get("zone", "?"),
                         )
-
-                        # Generate tips once per exported session.
-                        session_ts = session.get("ts")
-                        if session_ts != last_tip_session_ts:
-                            try:
-                                tips = mcp_generate_tips(session, TIPS_COUNT)
-                                if tips:
-                                    write_reco(tips, base_text=raw)
-                                    log.info("[SV] Wrote %d recommendations to pendingReco", len(tips))
-                                else:
-                                    log.warning("[SV] MCP returned no tips for session ts=%s", session_ts)
-                                last_tip_session_ts = session_ts
-                            except Exception as exc:
-                                log.error("[SV] Failed to generate/write tips: %s", exc)
         except Exception as exc:
             log.error("SV-Fehler: %s", exc)
+
+        # ── 1b) Retry pending session/tips publish ───────────────────
+        now = time.time()
+        if pending_session and pending_session_ready and now >= retry_next_session_at:
+            if mcp_send_session(pending_session):
+                pending_session_ready = False
+                retry_backoff_session_sec = 5.0
+                log.info("[SV] Session update published to MCP")
+            else:
+                retry_next_session_at = now + retry_backoff_session_sec
+                retry_backoff_session_sec = min(retry_backoff_session_sec * 2, 60.0)
+
+        if pending_session and pending_tips_ready and now >= retry_next_tips_at:
+            session_ts = pending_session.get("ts")
+            if session_ts == last_tip_session_ts:
+                pending_tips_ready = False
+            else:
+                try:
+                    tips = mcp_generate_tips(pending_session, TIPS_COUNT)
+                    if tips:
+                        write_reco(tips, base_text=pending_raw_sv)
+                        log.info("[SV] Wrote %d recommendations to pendingReco", len(tips))
+                    else:
+                        log.warning("[SV] MCP returned no tips for session ts=%s", session_ts)
+                    last_tip_session_ts = session_ts
+                    pending_tips_ready = False
+                    retry_backoff_tips_sec = 5.0
+                except Exception as exc:
+                    log.error("[SV] Failed to generate/write tips: %s", exc)
+                    retry_next_tips_at = now + retry_backoff_tips_sec
+                    retry_backoff_tips_sec = min(retry_backoff_tips_sec * 2, 60.0)
 
         # ── 2) Stream combat log (structured) ──────────────────────
         try:
