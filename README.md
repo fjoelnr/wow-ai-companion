@@ -14,6 +14,18 @@ Ein **ToS-konformer** World of Warcraft Copilot: gibt **Tipps & Hinweise**, auto
 - Externe Analyse (Docker, Linux) via MCP-Server + LLM (lokal über Ollama oder API).
 - Fokus v1: Erkundung/Quests/Sammelziele/Rares. Kampf-Coach später.
 
+## ANR Context Layer
+
+Dieses Repository wurde mit einer ANR-konformen Kontextschicht erweitert.
+
+- Global context: `AGENTS.md`
+- Repository map: `.agents/context-index.md`
+- Local context: `addon/AGENT.md`, `agents/AGENT.md`, `mcp-server/AGENT.md`, `external/python/AGENT.md`, `docs/AGENT.md`, `tools/AGENT.md`
+- Skills: `.agents/skills/`
+- Workflows: `.agents/workflows/`
+- Guardrails: `.agents/guardrails/`
+- Manifest: `anr.yaml`
+
 ## Schnellstart (kurz)
 1) Addon nach `_retail_/Interface/AddOns/AICompanion/` kopieren.  
 2) Docker starten (`docker-compose.yml`) → `ollama`, `mcp`, `watcher`.  

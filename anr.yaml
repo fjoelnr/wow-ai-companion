@@ -1,0 +1,26 @@
+anr_version: 0.1
+
+repository:
+  name: wow-ai-companion
+  type: application
+
+agent_interface:
+  global_context: AGENTS.md
+  repository_map: .agents/context-index.md
+
+directories:
+  addon: addon
+  agents: agents
+  mcp_server: mcp-server
+  integration: external/python
+  documentation: docs
+  tools: tools
+
+agent_components:
+  skills: .agents/skills
+  workflows: .agents/workflows
+  guardrails: .agents/guardrails
+
+capabilities:
+  migration_supported: true
+  validation_supported: true
