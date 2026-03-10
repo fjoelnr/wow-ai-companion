@@ -3,7 +3,7 @@
 ## Purpose
 
 This repository contains the WoW AI Companion addon plus supporting Python/MCP services.
-This file is the global context entry point for AI coding agents.
+This file is the repo memory for AI coding agents.
 
 ## Repository Map
 
@@ -29,3 +29,4 @@ This file is the global context entry point for AI coding agents.
 - Keep addon Lua logic and Python/MCP logic separated.
 - Update documentation when behavior or setup changes.
 - Respect guardrails for release and ingestion paths.
+- Keep detailed gotchas in local `AGENT.md` files near risky modules.
