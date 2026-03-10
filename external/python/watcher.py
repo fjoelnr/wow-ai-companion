@@ -252,6 +252,23 @@ def mcp_push_session(session: dict) -> bool:
         return False
 
 
+def mcp_push_recommendations(character_key: str, tips: list[str], ts_value) -> bool:
+    try:
+        resp = _HTTP.post(
+            f"{MCP_URL}/api/recommendations",
+            json={
+                "characterKey": character_key,
+                "tips": tips,
+                "updatedAt": int(ts_value or time.time()),
+            },
+            timeout=10,
+        )
+        return resp.ok
+    except Exception as exc:
+        log.warning("Recommendation push failed: %s", exc)
+        return False
+
+
 def mcp_ingest_combat_event(event: dict) -> None:
     try:
         _HTTP.post(f"{MCP_URL}/tools/ingest_combat_event", json=event, timeout=5)
@@ -308,6 +325,7 @@ def main() -> None:
                         tips = mcp_generate_tips(session, TIPS_COUNT) or ["Keine Tipps erzeugt."]
                         character_key = session.get("characterKey") or "unknown"
                         write_reco(raw, character_key, tips, session.get("ts"))
+                        mcp_push_recommendations(character_key, tips, session.get("ts"))
                         log.info("Wrote %d tips for %s", len(tips), character_key)
         except Exception as exc:
             log.error("SV-Fehler: %s", exc)

@@ -62,5 +62,14 @@ services:
     depends_on:
       - mcp
 
+  webui:
+    build: ./webui
+    container_name: ai-webui
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - mcp
+
 volumes:
   ollama_models:

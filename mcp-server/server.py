@@ -93,10 +93,17 @@ class CombatEvent(BaseModel):
 LIVE_EVENTS: List[CombatEvent] = []
 LATEST_SESSION: Dict[str, Any] = {}
 SESSIONS_BY_CHARACTER: Dict[str, Dict[str, Any]] = {}
+RECOMMENDATIONS_BY_CHARACTER: Dict[str, Dict[str, Any]] = {}
 
 
 class SessionEnvelope(BaseModel):
     session: Session
+
+
+class RecommendationEnvelope(BaseModel):
+    characterKey: str
+    tips: List[str]
+    updatedAt: Optional[int] = None
 
 @app.get("/")
 def root():
@@ -158,6 +165,23 @@ def list_characters():
           "ts": session.get("ts"),
       })
     return characters
+
+
+@app.post("/api/recommendations")
+def ingest_recommendations(req: RecommendationEnvelope):
+    RECOMMENDATIONS_BY_CHARACTER[req.characterKey] = {
+        "characterKey": req.characterKey,
+        "tips": req.tips,
+        "updatedAt": req.updatedAt,
+    }
+    return {"ok": True}
+
+
+@app.get("/api/recommendations")
+def get_recommendations(character_key: str | None = None):
+    if character_key:
+        return RECOMMENDATIONS_BY_CHARACTER.get(character_key, {})
+    return RECOMMENDATIONS_BY_CHARACTER
 
 @app.post("/tools/generate_tips", response_model=GenResp)
 def generate_tips(req: GenReq):
