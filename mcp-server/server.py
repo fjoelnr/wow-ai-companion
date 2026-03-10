@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.routing import APIRoute
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 import os, json, requests, re
@@ -12,9 +13,9 @@ FALLBACK = os.getenv("OLLAMA_FALLBACK_MODEL", "mistral-nemo")
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini")
 
-POST_PROMPT = """You are a concise WoW exploration/quest coach.
+POST_PROMPT = """You are a concise WoW exploration, quest and profession coach.
 Return EXACTLY {n} bullet tips (<=160 chars) in the player's locale (field 'locale').
-Focus on exploration, missed turn-ins, quest items, rares, points of interest.
+Focus on quests, missed turn-ins, profession next steps, useful zone goals, rares and points of interest.
 Never suggest automation; textual tips only.
 DATA:
 ```json
@@ -63,9 +64,18 @@ def to_bullets(text: str, n: int) -> List[str]:
 class Session(BaseModel):
     ts: Optional[int] = None
     player: Optional[str] = None
+    realm: Optional[str] = None
+    characterKey: Optional[str] = None
     class_: Optional[str] = Field(None, alias="class")
     specId: Optional[int] = None
+    level: Optional[int] = None
+    ilvl: Optional[float] = None
+    mapId: Optional[int] = None
     zone: Optional[str] = None
+    location: Optional[Dict[str, Any]] = None
+    activeQuests: Optional[List[Dict[str, Any]]] = None
+    professions: Optional[List[Dict[str, Any]]] = None
+    gold: Optional[int] = None
     fights: Optional[List[Dict[str, Any]]] = None
     locale: Optional[str] = "deDE"
 
@@ -81,6 +91,12 @@ class CombatEvent(BaseModel):
     raw: str
 
 LIVE_EVENTS: List[CombatEvent] = []
+LATEST_SESSION: Dict[str, Any] = {}
+SESSIONS_BY_CHARACTER: Dict[str, Dict[str, Any]] = {}
+
+
+class SessionEnvelope(BaseModel):
+    session: Session
 
 @app.get("/")
 def root():
@@ -102,10 +118,52 @@ def ping():
 def health():
     return {"ok": True}
 
+
+@app.post("/api/session")
+def ingest_session(req: SessionEnvelope):
+    data = req.session.dict(by_alias=True)
+    character_key = data.get("characterKey") or _character_key(data)
+    if character_key:
+        data["characterKey"] = character_key
+        SESSIONS_BY_CHARACTER[character_key] = data
+
+    global LATEST_SESSION
+    LATEST_SESSION = data
+    return {"ok": True, "characterKey": character_key}
+
+
+@app.get("/api/session")
+def get_session(character_key: str | None = None):
+    if character_key:
+        return SESSIONS_BY_CHARACTER.get(character_key, {})
+    return LATEST_SESSION
+
+
+@app.get("/api/characters")
+def list_characters():
+    characters = []
+    for key, session in sorted(
+        SESSIONS_BY_CHARACTER.items(),
+        key=lambda item: item[1].get("ts") or 0,
+        reverse=True,
+    ):
+      characters.append({
+          "characterKey": key,
+          "player": session.get("player"),
+          "realm": session.get("realm"),
+          "class": session.get("class"),
+          "level": session.get("level"),
+          "ilvl": session.get("ilvl"),
+          "zone": session.get("zone"),
+          "ts": session.get("ts"),
+      })
+    return characters
+
 @app.post("/tools/generate_tips", response_model=GenResp)
 def generate_tips(req: GenReq):
     loc = req.session.locale or "deDE"
     data = req.session.dict(by_alias=True)
+    data["characterKey"] = data.get("characterKey") or _character_key(data)
     merged = {**(data or {}), "locale": loc}
     prompt = POST_PROMPT.format(n=req.tips, data=json.dumps(merged, ensure_ascii=False))
     if MODE == "api" and OPENAI_KEY:
@@ -125,3 +183,13 @@ def ingest(ev: CombatEvent):
 @app.get("/tools/live_events")
 def live_events(limit: int = 100):
     return [e.dict() for e in LIVE_EVENTS[-limit:]]
+
+
+def _character_key(data: Dict[str, Any]) -> str | None:
+    player = data.get("player")
+    realm = data.get("realm")
+    if not player:
+        return None
+    if not realm:
+        return player
+    return f"{player}-{str(realm).replace(' ', '')}"

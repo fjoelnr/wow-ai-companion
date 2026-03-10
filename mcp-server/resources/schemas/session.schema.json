@@ -3,9 +3,33 @@
   "properties": {
     "ts": { "type": "number" },
     "player": { "type": "string" },
+    "realm": { "type": "string" },
+    "characterKey": { "type": "string" },
     "class": { "type": "string" },
     "specId": { "type": "number" },
+    "level": { "type": "number" },
+    "ilvl": { "type": "number" },
+    "mapId": { "type": "number" },
     "zone": { "type": "string" },
+    "location": {
+      "type": "object",
+      "properties": {
+        "mapId": { "type": ["number", "null"] },
+        "mapName": { "type": ["string", "null"] },
+        "zone": { "type": ["string", "null"] },
+        "subZone": { "type": ["string", "null"] },
+        "realZone": { "type": ["string", "null"] }
+      }
+    },
+    "activeQuests": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "professions": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "gold": { "type": "number" },
     "fights": {
       "type": "array",
       "items": { "type": "object" }

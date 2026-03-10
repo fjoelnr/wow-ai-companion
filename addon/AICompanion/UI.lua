@@ -3,6 +3,15 @@ AICompanion.UI = AICompanion.UI or {}
 
 local panel, recoFrame
 
+local function getRecommendations(characterKey)
+  local key = characterKey or AICompanionCharSV.selectedCharacter or AICompanionCharSV.characterKey
+  local accountReco = AICompanionSV and AICompanionSV.recommendations and key and AICompanionSV.recommendations[key]
+  if accountReco and type(accountReco.tips) == "table" then
+    return accountReco.tips, key, accountReco.updatedAt
+  end
+  return AICompanionCharSV.pendingReco or {}, key, nil
+end
+
 -- Export-Prompt
 function AICompanion.UI.Init()
   if panel then return end
@@ -83,19 +92,30 @@ local function buildReco()
 end
 
 function AICompanion.UI.MaybeShowRecoOnLogin()
-  if AICompanionCharSV and AICompanionCharSV.pendingReco and #AICompanionCharSV.pendingReco > 0 then
+  local tips = getRecommendations()
+  if tips and #tips > 0 then
     AICompanion.UI.ShowReco()
   end
 end
 
-function AICompanion.UI.ShowReco()
+function AICompanion.UI.ShowReco(characterKey)
   buildReco()
   local L = AICompanion.L or {}
   recoFrame.title:SetText(L.RECO_TITLE or "AI Companion – Tipps")
+  local tips, resolvedKey = getRecommendations(characterKey)
   local lines = {}
-  for _, r in ipairs(AICompanionCharSV.pendingReco or {}) do
+  for _, r in ipairs(tips or {}) do
     table.insert(lines, ("|cff00ff88•|r %s"):format(r))
   end
+
+  if #lines == 0 then
+    table.insert(lines, L.RECO_EMPTY or "Keine Tipps für diesen Charakter vorhanden.")
+  end
+  if resolvedKey then
+    table.insert(lines, 1, ("|cff66ccff%s|r"):format(resolvedKey))
+    table.insert(lines, 2, "")
+  end
+
   recoFrame.text:SetText(table.concat(lines, "\n"))
   recoFrame:Show()
 end

@@ -53,6 +53,7 @@ curl http://localhost:8080/tools/ping     # -> {"pong": true}
 1. Im Spiel: `/aicoach export`
 2. Watcher-Logs: `docker logs -f ai-watcher` (Tipps sollten generiert werden)
 3. Im Spiel: `/aicoach tips` (Tipps-Panel)
+4. Mehrere Charaktere: `/aicoach chars`, `/aicoach select <char>`, `/aicoach tips [char]`
 
 ### Ergänzung: Hinweis auf englische Version
 Siehe auch die englische Version: `Quickstart.md`.

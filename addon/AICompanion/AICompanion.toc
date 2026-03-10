@@ -8,6 +8,7 @@
 
 Core.lua
 Combat.lua
+Data.lua
 UI.lua
 Locales/enUS.lua
 Locales/deDE.lua

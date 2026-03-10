@@ -16,6 +16,7 @@ Ein **ToS-konformer** World of Warcraft Copilot: gibt **Tipps & Hinweise**, auto
 - Addon (Lua) sammelt Daten & zeigt Empfehlungen.
 - Externe Analyse (Docker, Linux) via MCP-Server + LLM (lokal über Ollama oder API).
 - Fokus v1: Erkundung/Quests/Sammelziele/Rares. Kampf-Coach später.
+- Erste Multi-Character-Basis: Exporte und Empfehlungen werden pro `characterKey` getrennt geführt.
 
 ## ANR Context Layer
 
@@ -65,6 +66,7 @@ ein Agent kann die WoW-Addon-Logik, die Python-Agenten und den MCP-Server als ge
 1) Addon nach `_retail_/Interface/AddOns/AICompanion/` kopieren.  
 2) Docker starten (`docker-compose.yml`) → `ollama`, `mcp`, `watcher`.  
 3) Im Spiel: `/aicoach export` → extern Analyse → `/reload` → Tippspanel.
+4) Zusätzliche Befehle: `/aicoach chars`, `/aicoach select <char>`, `/aicoach tips [char]`.
 
 Siehe `docs/ARCHITECTURE.md` für Details.
 

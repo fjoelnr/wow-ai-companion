@@ -1,5 +1,6 @@
 import io
 import json
+import logging
 import os
 import pathlib
 import re
@@ -14,32 +15,226 @@ MCP_URL = os.getenv("MCP_URL", "http://mcp:8080")
 TIPS_COUNT = int(os.getenv("TIPS_COUNT", "5"))
 POLL_INTERVAL = float(os.getenv("POLL_INTERVAL", "2.0"))
 
+logging.basicConfig(
+    level=os.getenv("WATCHER_LOG_LEVEL", "INFO"),
+    format="%(asctime)s [watcher] %(levelname)s: %(message)s",
+)
+log = logging.getLogger("watcher")
+
+_HTTP = requests.Session()
+_MARKER_START = "-- AICOACH_MANAGED_RECO_START"
+_MARKER_END = "-- AICOACH_MANAGED_RECO_END"
+
+
+class LuaParser:
+    """Small Lua table parser for WoW SavedVariables."""
+
+    def __init__(self, text: str) -> None:
+        self.text = re.sub(r"--[^\n]*", "", text)
+        self.pos = 0
+
+    def _skip_ws(self) -> None:
+        while self.pos < len(self.text) and self.text[self.pos] in " \t\r\n":
+            self.pos += 1
+
+    def _expect(self, ch: str) -> None:
+        self._skip_ws()
+        if self.pos >= len(self.text) or self.text[self.pos] != ch:
+            raise ValueError(f"Expected {ch!r} at {self.pos}")
+        self.pos += 1
+
+    def parse_value(self):
+        self._skip_ws()
+        ch = self.text[self.pos] if self.pos < len(self.text) else ""
+        if ch == "{":
+            return self.parse_table()
+        if ch == '"':
+            return self.parse_string('"')
+        if ch == "'":
+            return self.parse_string("'")
+        return self.parse_literal()
+
+    def parse_string(self, quote: str) -> str:
+        self._expect(quote)
+        out = []
+        while self.pos < len(self.text):
+            ch = self.text[self.pos]
+            if ch == "\\":
+                self.pos += 1
+                if self.pos < len(self.text):
+                    out.append(self.text[self.pos])
+                    self.pos += 1
+                continue
+            if ch == quote:
+                self.pos += 1
+                return "".join(out)
+            out.append(ch)
+            self.pos += 1
+        return "".join(out)
+
+    def parse_literal(self):
+        start = self.pos
+        while self.pos < len(self.text) and self.text[self.pos] not in " ,}\t\r\n":
+            self.pos += 1
+        token = self.text[start:self.pos].strip()
+        if token == "true":
+            return True
+        if token == "false":
+            return False
+        if token == "nil":
+            return None
+        try:
+            return int(token)
+        except ValueError:
+            pass
+        try:
+            return float(token)
+        except ValueError:
+            pass
+        return token
+
+    def parse_table(self):
+        self._expect("{")
+        result_dict = {}
+        result_list = []
+        is_array = True
+
+        while True:
+            self._skip_ws()
+            if self.pos >= len(self.text):
+                break
+            if self.text[self.pos] == "}":
+                self.pos += 1
+                break
+
+            key = self._try_parse_key()
+            if key is not None:
+                is_array = False
+                result_dict[key] = self.parse_value()
+            else:
+                result_list.append(self.parse_value())
+
+            self._skip_ws()
+            if self.pos < len(self.text) and self.text[self.pos] == ",":
+                self.pos += 1
+
+        if is_array and result_list:
+            return result_list
+        if not is_array:
+            return result_dict
+        return result_dict
+
+    def _try_parse_key(self):
+        saved = self.pos
+        self._skip_ws()
+
+        if self.pos < len(self.text) and self.text[self.pos] == "[":
+            self.pos += 1
+            self._skip_ws()
+            if self.pos < len(self.text) and self.text[self.pos] in ('"', "'"):
+                key = self.parse_string(self.text[self.pos])
+                self._skip_ws()
+                if self.pos < len(self.text) and self.text[self.pos] == "]":
+                    self.pos += 1
+                    self._skip_ws()
+                    if self.pos < len(self.text) and self.text[self.pos] == "=":
+                        self.pos += 1
+                        return key
+            self.pos = saved
+            return None
+
+        if self.pos < len(self.text) and (
+            self.text[self.pos].isalpha() or self.text[self.pos] == "_"
+        ):
+            start = self.pos
+            while self.pos < len(self.text) and (
+                self.text[self.pos].isalnum() or self.text[self.pos] == "_"
+            ):
+                self.pos += 1
+            key = self.text[start:self.pos]
+            self._skip_ws()
+            if self.pos < len(self.text) and self.text[self.pos] == "=":
+                self.pos += 1
+                return key
+            self.pos = saved
+            return None
+
+        return None
+
 
 def parse_sv(text: str) -> dict:
-    """Very rough Lua table to JSON heuristic for MVP."""
-    text = re.sub(r"--.*", "", text)
-    start = text.find("{")
-    end = text.rfind("}") + 1
-    if start < 0 or end <= 0:
+    match = re.search(r"[a-zA-Z_]\w*\s*=\s*\{", text)
+    if not match:
         return {}
-    blob = text[start:end]
-    blob = re.sub(r"([a-zA-Z_]\w*)\s*=", r'"\1":', blob)
-    blob = blob.replace("'", '"').replace("nil", "null")
-    return json.loads(blob)
+    brace_pos = text.index("{", match.start())
+    parser = LuaParser(text[brace_pos:])
+    try:
+        data = parser.parse_value()
+        return data if isinstance(data, dict) else {}
+    except Exception as exc:
+        log.error("Lua parse error: %s", exc)
+        return {}
 
 
-def write_reco(tips: list[str]) -> None:
-    out = "AICompanionSV = AICompanionSV or {}\n"
-    out += "AICompanionCharSV = AICompanionCharSV or {}\n"
-    out += 'AICompanionCharSV["pendingReco"] = {\n'
+def normalize_session(session: dict) -> dict:
+    normalized = dict(session)
+    for key in ("fights", "activeQuests", "professions"):
+        if isinstance(normalized.get(key), dict):
+            normalized[key] = []
+    normalized["characterKey"] = normalized.get("characterKey") or derive_character_key(normalized)
+    return normalized
+
+
+def derive_character_key(session: dict) -> str | None:
+    player = session.get("player")
+    realm = session.get("realm")
+    if not player:
+        return None
+    if not realm:
+        return player
+    return f"{player}-{str(realm).replace(' ', '')}"
+
+
+def managed_reco_block(character_key: str, tips: list[str], ts_value) -> str:
+    key_literal = json.dumps(character_key, ensure_ascii=False)
+    lines = [
+        _MARKER_START,
+        "AICompanionSV = AICompanionSV or {}",
+        "AICompanionSV.recommendations = AICompanionSV.recommendations or {}",
+        f"AICompanionSV.recommendations[{key_literal}] = {{",
+        f'  ["tips"] = {{',
+    ]
     for tip in tips:
-        out += f"  {json.dumps(tip, ensure_ascii=False)},\n"
-    out += "}\n"
-    pathlib.Path(SV_WRITE).write_text(out, encoding="utf-8")
+        lines.append(f"    {json.dumps(tip, ensure_ascii=False)},")
+    lines.extend(
+        [
+            "  },",
+            f'  ["updatedAt"] = {int(ts_value or time.time())},',
+            "}",
+            "AICompanionCharSV = AICompanionCharSV or {}",
+            f'AICompanionCharSV["pendingReco"] = AICompanionSV.recommendations[{key_literal}]["tips"]',
+            _MARKER_END,
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def write_reco(base_text: str, character_key: str, tips: list[str], ts_value) -> None:
+    content = re.sub(
+        rf"\n?{re.escape(_MARKER_START)}.*?{re.escape(_MARKER_END)}\n?",
+        "\n",
+        base_text,
+        flags=re.DOTALL,
+    ).rstrip()
+    block = managed_reco_block(character_key, tips, ts_value)
+    if content:
+        content += "\n\n"
+    pathlib.Path(SV_WRITE).write_text(content + block, encoding="utf-8")
 
 
 def mcp_generate_tips(session: dict, tips_count: int) -> list[str]:
-    resp = requests.post(
+    resp = _HTTP.post(
         f"{MCP_URL}/tools/generate_tips",
         json={"session": session, "tips": tips_count},
         timeout=60,
@@ -48,11 +243,19 @@ def mcp_generate_tips(session: dict, tips_count: int) -> list[str]:
     return resp.json().get("tips", [])
 
 
+def mcp_push_session(session: dict) -> bool:
+    try:
+        resp = _HTTP.post(f"{MCP_URL}/api/session", json={"session": session}, timeout=10)
+        return resp.ok
+    except Exception as exc:
+        log.warning("Session push failed: %s", exc)
+        return False
+
+
 def mcp_ingest_combat_event(event: dict) -> None:
     try:
-        requests.post(f"{MCP_URL}/tools/ingest_combat_event", json=event, timeout=5)
+        _HTTP.post(f"{MCP_URL}/tools/ingest_combat_event", json=event, timeout=5)
     except Exception:
-        # Best-effort only; never crash the loop due to network hiccups.
         pass
 
 
@@ -71,9 +274,8 @@ class Tailer:
         return True
 
     def poll_lines(self) -> list[str]:
-        if not self.fp:
-            if not self.open():
-                return []
+        if not self.fp and not self.open():
+            return []
         self.fp.seek(self.pos)
         lines = self.fp.readlines()
         self.pos = self.fp.tell()
@@ -87,12 +289,11 @@ def parse_combatlog_line(line: str) -> dict | None:
 
 
 def main() -> None:
-    print("Watcher gestartet.")
+    log.info("Watcher gestartet")
     last_sv_mtime = 0.0
     tail = Tailer(COMBATLOG_PATH)
 
     while True:
-        # 1) SavedVariables snapshot detected
         try:
             if os.path.exists(SV_PATH):
                 mtime = os.path.getmtime(SV_PATH)
@@ -101,22 +302,23 @@ def main() -> None:
                     raw = pathlib.Path(SV_PATH).read_text(encoding="utf-8", errors="ignore")
                     sv = parse_sv(raw)
                     sessions = sv.get("sessions", [])
-                    if sessions:
-                        session = sessions[-1]
+                    if isinstance(sessions, list) and sessions:
+                        session = normalize_session(sessions[-1])
+                        mcp_push_session(session)
                         tips = mcp_generate_tips(session, TIPS_COUNT) or ["Keine Tipps erzeugt."]
-                        write_reco(tips)
-                        print(f"[SV] {len(tips)} Tipps geschrieben. (/reload im Spiel)")
+                        character_key = session.get("characterKey") or "unknown"
+                        write_reco(raw, character_key, tips, session.get("ts"))
+                        log.info("Wrote %d tips for %s", len(tips), character_key)
         except Exception as exc:
-            print("SV-Fehler:", exc)
+            log.error("SV-Fehler: %s", exc)
 
-        # 2) Stream combat log
         try:
             for raw_line in tail.poll_lines():
                 event = parse_combatlog_line(raw_line)
                 if event:
                     mcp_ingest_combat_event(event)
         except Exception as exc:
-            print("CombatLog-Fehler:", exc)
+            log.error("CombatLog-Fehler: %s", exc)
 
         time.sleep(POLL_INTERVAL)
 

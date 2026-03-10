@@ -8,4 +8,5 @@ AICompanionLocale = {
   MANUAL = "manuell",
   HINT_EXPORT = "Export jetzt möglich",
   RECO_TITLE = "AI Companion – Tipps",
+  RECO_EMPTY = "Keine Tipps für diesen Charakter vorhanden.",
 }
