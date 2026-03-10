@@ -38,7 +38,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL=gpt-5-mini
     ports:
-      - "8080:8080"
+      - "9090:8080"
     volumes:
       - ./svshare:/svshare
     depends_on:
