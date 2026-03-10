@@ -33,8 +33,8 @@ services:
     environment:
       - LLM_MODE=local           # local|api
       - OLLAMA_BASE_URL=http://ollama:11434
-      - OLLAMA_MODEL=gpt-oss:20b
-      - OLLAMA_FALLBACK_MODEL=mistral:7b
+      - OLLAMA_MODEL=llama3.2:3b
+      - OLLAMA_FALLBACK_MODEL=
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL=gpt-5-mini
     ports:
@@ -51,14 +51,16 @@ services:
     container_name: ai-watcher
     restart: unless-stopped
     environment:
-      - SV_PATH=/svshare/WTF/Account/YOUR/SavedVariables/AICompanion.lua
-      - SV_WRITE=/svshare/WTF/Account/YOUR/SavedVariables/AICompanion.lua
-      - COMBATLOG_PATH=/svshare/Logs/WoWCombatLog.txt
+      - SV_PATH=/wow/WTF/Account/103722624#1/SavedVariables/AICompanion.lua
+      - SV_WRITE=/wow/WTF/Account/103722624#1/SavedVariables/AICompanion.lua
+      - COMBATLOG_PATH=/wow/Logs/WoWCombatLog.txt
+      - COMBATLOG_DIR=/wow/Logs
       - MCP_URL=http://mcp:8080
       - TIPS_COUNT=5
       - POLL_INTERVAL=2.0
     volumes:
-      - ./svshare:/svshare
+      - "D:/Games/World of Warcraft/_retail_:/wow:ro"
+      - "D:/Games/World of Warcraft/_retail_/WTF/Account/103722624#1/SavedVariables/AICompanion.lua:/wow/WTF/Account/103722624#1/SavedVariables/AICompanion.lua"
     depends_on:
       - mcp
 

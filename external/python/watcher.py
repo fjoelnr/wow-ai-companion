@@ -5,12 +5,14 @@ import os
 import pathlib
 import re
 import time
+import glob
 
 import requests
 
 SV_PATH = os.getenv("SV_PATH", "/svshare/WTF/Account/.../SavedVariables/AICompanion.lua")
 SV_WRITE = os.getenv("SV_WRITE", SV_PATH)
 COMBATLOG_PATH = os.getenv("COMBATLOG_PATH", "/svshare/Logs/WoWCombatLog.txt")
+COMBATLOG_DIR = os.getenv("COMBATLOG_DIR", "")
 MCP_URL = os.getenv("MCP_URL", "http://mcp:8080")
 TIPS_COUNT = int(os.getenv("TIPS_COUNT", "5"))
 POLL_INTERVAL = float(os.getenv("POLL_INTERVAL", "2.0"))
@@ -277,26 +279,65 @@ def mcp_ingest_combat_event(event: dict) -> None:
 
 
 class Tailer:
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str, logs_dir: str | None = None) -> None:
         self.path = path
+        self.logs_dir = logs_dir or ""
         self.fp: io.TextIOWrapper | None = None
         self.pos = 0
+        self.current_path: str | None = None
+        self.last_scan = 0.0
 
     def open(self) -> bool:
-        if not os.path.exists(self.path):
+        target = self.resolve_path()
+        if not target or not os.path.exists(target):
             return False
-        self.fp = open(self.path, "r", encoding="utf-8", errors="ignore")
+        self.fp = open(target, "r", encoding="utf-8", errors="ignore")
         self.fp.seek(0, io.SEEK_END)
         self.pos = self.fp.tell()
+        self.current_path = target
         return True
 
     def poll_lines(self) -> list[str]:
+        self.maybe_rotate()
         if not self.fp and not self.open():
             return []
         self.fp.seek(self.pos)
         lines = self.fp.readlines()
         self.pos = self.fp.tell()
         return [line.rstrip("\n") for line in lines]
+
+    def resolve_path(self) -> str | None:
+        if os.path.isfile(self.path):
+            return self.path
+        if self.logs_dir:
+            return find_latest_combatlog(self.logs_dir)
+        return None
+
+    def maybe_rotate(self) -> None:
+        if not self.logs_dir:
+            return
+        now = time.time()
+        if now - self.last_scan < 5:
+            return
+        self.last_scan = now
+        latest = find_latest_combatlog(self.logs_dir)
+        if latest and latest != self.current_path:
+            if self.fp:
+                self.fp.close()
+            self.fp = None
+            self.pos = 0
+            self.current_path = latest
+
+
+def find_latest_combatlog(logs_dir: str) -> str | None:
+    candidates = []
+    classic = os.path.join(logs_dir, "WoWCombatLog.txt")
+    if os.path.exists(classic):
+        candidates.append(classic)
+    candidates.extend(glob.glob(os.path.join(logs_dir, "WoWCombatLog-*.txt")))
+    if not candidates:
+        return None
+    return max(candidates, key=os.path.getmtime)
 
 
 def parse_combatlog_line(line: str) -> dict | None:
@@ -308,7 +349,15 @@ def parse_combatlog_line(line: str) -> dict | None:
 def main() -> None:
     log.info("Watcher gestartet")
     last_sv_mtime = 0.0
-    tail = Tailer(COMBATLOG_PATH)
+    logs_dir = COMBATLOG_DIR or os.path.dirname(COMBATLOG_PATH)
+    tail = Tailer(COMBATLOG_PATH, logs_dir=logs_dir)
+    pending_session: dict | None = None
+    pending_raw_sv: str = ""
+    retry_session_at = 0.0
+    retry_reco_at = 0.0
+    session_backoff = 5.0
+    reco_backoff = 5.0
+    reco_done_for_ts: int | float | None = None
 
     while True:
         try:
@@ -320,15 +369,40 @@ def main() -> None:
                     sv = parse_sv(raw)
                     sessions = sv.get("sessions", [])
                     if isinstance(sessions, list) and sessions:
-                        session = normalize_session(sessions[-1])
-                        mcp_push_session(session)
-                        tips = mcp_generate_tips(session, TIPS_COUNT) or ["Keine Tipps erzeugt."]
-                        character_key = session.get("characterKey") or "unknown"
-                        write_reco(raw, character_key, tips, session.get("ts"))
-                        mcp_push_recommendations(character_key, tips, session.get("ts"))
-                        log.info("Wrote %d tips for %s", len(tips), character_key)
+                        pending_session = normalize_session(sessions[-1])
+                        pending_raw_sv = raw
+                        retry_session_at = 0.0
+                        retry_reco_at = 0.0
         except Exception as exc:
             log.error("SV-Fehler: %s", exc)
+
+        now = time.time()
+        if pending_session and now >= retry_session_at:
+            if mcp_push_session(pending_session):
+                retry_session_at = float("inf")
+                session_backoff = 5.0
+            else:
+                retry_session_at = now + session_backoff
+                session_backoff = min(session_backoff * 2, 60.0)
+
+        if pending_session and now >= retry_reco_at:
+            session_ts = pending_session.get("ts")
+            if session_ts == reco_done_for_ts:
+                retry_reco_at = float("inf")
+            else:
+                try:
+                    tips = mcp_generate_tips(pending_session, TIPS_COUNT) or ["Keine Tipps erzeugt."]
+                    character_key = pending_session.get("characterKey") or "unknown"
+                    write_reco(pending_raw_sv, character_key, tips, pending_session.get("ts"))
+                    mcp_push_recommendations(character_key, tips, pending_session.get("ts"))
+                    reco_done_for_ts = session_ts
+                    retry_reco_at = float("inf")
+                    reco_backoff = 5.0
+                    log.info("Wrote %d tips for %s", len(tips), character_key)
+                except Exception as exc:
+                    log.error("Recommendation generation failed: %s", exc)
+                    retry_reco_at = now + reco_backoff
+                    reco_backoff = min(reco_backoff * 2, 60.0)
 
         try:
             for raw_line in tail.poll_lines():
