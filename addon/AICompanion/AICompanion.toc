@@ -1,4 +1,4 @@
-## Interface: 11505
+## Interface: 120001
 ## Title: AI Companion (Coach)
 ## Notes: Post-Fight/Exploration Tipps (keine Automatisierung)
 ## Author: Fjölnir & Team
