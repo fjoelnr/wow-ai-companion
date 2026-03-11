@@ -12,6 +12,19 @@ local function getRecommendations(characterKey)
   return AICompanionCharSV.pendingReco or {}, key, nil
 end
 
+local function makeMovable(frame)
+  frame:SetMovable(true)
+  frame:EnableMouse(true)
+  frame:RegisterForDrag("LeftButton")
+  frame:SetClampedToScreen(true)
+  frame:SetScript("OnDragStart", function(self)
+    self:StartMoving()
+  end)
+  frame:SetScript("OnDragStop", function(self)
+    self:StopMovingOrSizing()
+  end)
+end
+
 -- Export-Prompt
 function AICompanion.UI.Init()
   if panel then return end
@@ -19,6 +32,7 @@ function AICompanion.UI.Init()
   panel:SetSize(420, 220)
   panel:SetPoint("CENTER")
   panel:Hide()
+  makeMovable(panel)
 
   panel.title = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   panel.title:SetPoint("TOP", 0, -10)
@@ -71,6 +85,7 @@ local function buildReco()
   recoFrame:SetSize(420, 320)
   recoFrame:SetPoint("CENTER")
   recoFrame:Hide()
+  makeMovable(recoFrame)
   recoFrame.title = recoFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   recoFrame.title:SetPoint("TOP", 0, -10)
   recoFrame.title:SetText("AI Companion – Tipps")
