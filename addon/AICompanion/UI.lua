@@ -3,15 +3,6 @@ AICompanion.UI = AICompanion.UI or {}
 
 local panel, recoFrame
 
-local BACKDROP = {
-  bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
-  edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-  tile = true,
-  tileSize = 16,
-  edgeSize = 16,
-  insets = { left = 4, right = 4, top = 4, bottom = 4 },
-}
-
 local function getRecommendations(characterKey)
   local key = characterKey or AICompanionCharSV.selectedCharacter or AICompanionCharSV.characterKey
   local accountReco = AICompanionSV and AICompanionSV.recommendations and key and AICompanionSV.recommendations[key]
@@ -35,9 +26,20 @@ local function makeMovable(frame)
 end
 
 local function styleFrame(frame)
-  frame:SetBackdrop(BACKDROP)
-  frame:SetBackdropColor(0.05, 0.05, 0.08, 0.96)
-  frame:SetBackdropBorderColor(0.4, 0.4, 0.45, 1)
+  local bg = frame:CreateTexture(nil, "BACKGROUND")
+  bg:SetAllPoints(frame)
+  bg:SetColorTexture(0.05, 0.05, 0.08, 0.96)
+  frame.bg = bg
+
+  local border = CreateFrame("Frame", nil, frame)
+  border:SetAllPoints(frame)
+  border:SetBackdrop({
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    edgeSize = 14,
+  })
+  border:SetBackdropBorderColor(0.4, 0.4, 0.45, 1)
+  border:EnableMouse(false)
+  frame.border = border
 end
 
 local function createTitle(frame, text)
@@ -50,16 +52,44 @@ local function createTitle(frame, text)
 end
 
 local function createCloseButton(parent)
-  local close = CreateFrame("Button", nil, parent, "UIPanelCloseButton")
-  close:SetPoint("TOPRIGHT", -4, -4)
+  local close = CreateFrame("Button", nil, parent)
+  close:SetSize(24, 24)
+  close:SetPoint("TOPRIGHT", -8, -8)
+  local bg = close:CreateTexture(nil, "BACKGROUND")
+  bg:SetAllPoints(close)
+  bg:SetColorTexture(0.45, 0.12, 0.12, 0.95)
+  local label = close:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  label:SetPoint("CENTER")
+  label:SetText("X")
+  close:SetScript("OnEnter", function()
+    bg:SetColorTexture(0.6, 0.16, 0.16, 1)
+  end)
+  close:SetScript("OnLeave", function()
+    bg:SetColorTexture(0.45, 0.12, 0.12, 0.95)
+  end)
   return close
 end
 
 local function createActionButton(parent, width, height, label, onClick)
-  local btn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+  local btn = CreateFrame("Button", nil, parent)
   btn:SetSize(width, height)
-  btn:SetText(label)
+  local bg = btn:CreateTexture(nil, "BACKGROUND")
+  bg:SetAllPoints(btn)
+  bg:SetColorTexture(0.3, 0.08, 0.08, 0.95)
+  local text = btn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  text:SetPoint("CENTER")
+  text:SetText(label)
+  btn.label = text
   btn:SetScript("OnClick", onClick)
+  btn:SetScript("OnEnter", function()
+    bg:SetColorTexture(0.45, 0.12, 0.12, 1)
+  end)
+  btn:SetScript("OnLeave", function()
+    bg:SetColorTexture(0.3, 0.08, 0.08, 0.95)
+  end)
+  function btn:SetText(value)
+    self.label:SetText(value)
+  end
   return btn
 end
 
@@ -77,7 +107,7 @@ function AICompanion.UI.Init()
     return
   end
 
-  panel = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+  panel = CreateFrame("Frame", nil, UIParent)
   panel:SetSize(420, 220)
   panel:SetPoint("CENTER", 0, 80)
   panel:Hide()
@@ -129,7 +159,7 @@ local function buildReco()
     return
   end
 
-  recoFrame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+  recoFrame = CreateFrame("Frame", nil, UIParent)
   recoFrame:SetSize(460, 340)
   recoFrame:SetPoint("CENTER")
   recoFrame:Hide()
