@@ -3,7 +3,6 @@ AICompanionSV = AICompanionSV or {}
 AICompanionCharSV = AICompanionCharSV or {}
 
 local AUTO_SYNC_THROTTLE_SEC = 15
-local AUTO_RELOAD_GUARD_SEC = 30
 local autoSyncTimer = nil
 local pendingAutoSyncReason = nil
 
@@ -41,21 +40,6 @@ local function exportSnapshot(reason)
   end
 end
 
-local function canAutoReloadNow()
-  return not InCombatLockdown or not InCombatLockdown()
-end
-
-local function shouldAutoReloadOnLogin()
-  local settings = AICompanionSV.settings or {}
-  if settings.autoReloadSync == false then
-    return false
-  end
-
-  local now = time()
-  local lastReloadAt = AICompanionCharSV.lastAutoReloadAt or 0
-  return (now - lastReloadAt) > AUTO_RELOAD_GUARD_SEC
-end
-
 local f = CreateFrame("Frame")
 f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("PLAYER_LOGIN")
@@ -66,11 +50,9 @@ f:SetScript("OnEvent", function(_, event, arg1)
     AICompanionSV.sessions = AICompanionSV.sessions or {}
     AICompanionSV.characters = AICompanionSV.characters or {}
     AICompanionSV.recommendations = AICompanionSV.recommendations or {}
-    AICompanionSV.settings = AICompanionSV.settings or { autoReloadSync = true }
     AICompanionCharSV.pendingReco = AICompanionCharSV.pendingReco or {}
     AICompanionCharSV.selectedCharacter = AICompanionCharSV.selectedCharacter or nil
     AICompanionCharSV.characterKey = AICompanionCharSV.characterKey or nil
-    AICompanionCharSV.lastAutoReloadAt = AICompanionCharSV.lastAutoReloadAt or 0
     SLASH_AICOMP1 = "/aicoach"
     SlashCmdList["AICOMP"] = function(msg)
       local command, rest = msg:match("^(%S+)%s*(.-)$")
@@ -79,9 +61,10 @@ f:SetScript("OnEvent", function(_, event, arg1)
 
       if command == "export" then
         AICompanion.ExportSession("manual")
-        print("|cff66ccffAICompanion:|r Export abgeschlossen. /reload ausführen, nachdem die Analyse lief.")
+        print("|cff66ccffAICompanion:|r Export abgeschlossen. Für externe Synchronisierung bitte /reload ausführen.")
       elseif command == "syncnow" then
-        AICompanion.SyncNow("manual")
+        AICompanion.ExportSession("manual")
+        print("|cff66ccffAICompanion:|r Snapshot geschrieben. Bitte /reload ausführen, damit WoW die Daten auf Disk speichert.")
       elseif command == "tips" then
         AICompanion.UI.ShowReco(AICompanion.ResolveCharacterKey(rest))
       elseif command == "chars" then
@@ -94,16 +77,8 @@ f:SetScript("OnEvent", function(_, event, arg1)
         else
           print("|cff66ccffAICompanion:|r Kein Charakter gefunden für:", rest)
         end
-      elseif command == "autosync" then
-        if rest == "off" then
-          AICompanionSV.settings.autoReloadSync = false
-          print("|cff66ccffAICompanion:|r Login-Auto-Sync deaktiviert.")
-        else
-          AICompanionSV.settings.autoReloadSync = true
-          print("|cff66ccffAICompanion:|r Login-Auto-Sync aktiviert.")
-        end
       else
-        print("|cff66ccffAICompanion:|r /aicoach export | /aicoach syncnow | /aicoach tips [char] | /aicoach chars | /aicoach select <char> | /aicoach autosync on|off")
+        print("|cff66ccffAICompanion:|r /aicoach export | /aicoach syncnow | /aicoach tips [char] | /aicoach chars | /aicoach select <char>")
       end
     end
   elseif event == "PLAYER_LOGIN" then
@@ -113,13 +88,6 @@ f:SetScript("OnEvent", function(_, event, arg1)
     AICompanion.UI.Init()
     AICompanion.UI.MaybeShowRecoOnLogin()
     AICompanion.QueueAutoSync("login", true)
-    if shouldAutoReloadOnLogin() then
-      C_Timer.NewTimer(3, function()
-        if canAutoReloadNow() then
-          AICompanion.SyncNow("login")
-        end
-      end)
-    end
   elseif event == "PLAYER_LOGOUT" then
     AICompanion.ExportSession("logout")
   end
@@ -174,12 +142,6 @@ end
 
 function AICompanion.ExportSession(reason)
   exportSnapshot(reason)
-end
-
-function AICompanion.SyncNow(reason)
-  exportSnapshot(reason or "sync")
-  AICompanionCharSV.lastAutoReloadAt = time()
-  ReloadUI()
 end
 
 function AICompanion.QueueAutoSync(reason, immediate)

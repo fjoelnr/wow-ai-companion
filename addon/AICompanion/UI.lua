@@ -49,11 +49,9 @@ function AICompanion.UI.Init()
   btn:SetSize(200, 24)
   btn:SetText("Jetzt exportieren")
   btn:SetScript("OnClick", function()
-    if AICompanion.SyncNow then
-      AICompanion.SyncNow("manual")
-    elseif AICompanion.ExportSession then
+    if AICompanion.ExportSession then
       AICompanion.ExportSession("manual")
-      ReloadUI()
+      print("|cff66ccffAICompanion:|r Snapshot geschrieben. Für externe Synchronisierung bitte /reload ausführen.")
     end
   end)
   panel.exportBtn = btn
@@ -70,7 +68,7 @@ function AICompanion.UI.ShowExportPrompt(reason)
   AICompanion.UI.Init()
   local L = AICompanion.L or {}
   local title = L.EXPORT_TITLE or "AI Companion – Export"
-  local msgT  = L.EXPORT_MSG or "Daten exportieren (%s)? Das UI lädt kurz neu."
+  local msgT  = L.EXPORT_MSG or "Daten exportieren (%s)? Für externe Synchronisierung danach /reload ausführen."
   local btnT  = L.EXPORT_NOW or "Jetzt exportieren"
   local laterT= L.LATER or "Später"
   panel.title:SetText(title)
