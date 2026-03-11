@@ -2,6 +2,10 @@ AICompanion = AICompanion or {}
 AICompanionSV = AICompanionSV or {}
 AICompanionCharSV = AICompanionCharSV or {}
 
+local AUTO_SYNC_THROTTLE_SEC = 15
+local autoSyncTimer = nil
+local pendingAutoSyncReason = nil
+
 -- Minimaler Locale-Loader (fallback enUS)
 local function loadLocale()
   local ok, L = pcall(function() return AICompanionLocale end)
@@ -12,9 +16,34 @@ local function loadLocale()
   end
 end
 
+local function exportSnapshot(reason)
+  local s = AICompanion.Data and AICompanion.Data.BuildSnapshot and AICompanion.Data.BuildSnapshot() or {}
+  if not s.characterKey and AICompanion.Data and AICompanion.Data.BuildCharacterKey then
+    s.characterKey = AICompanion.Data.BuildCharacterKey()
+  end
+  s.syncReason = reason or "manual"
+  table.insert(AICompanionSV.sessions, s)
+
+  if s.characterKey then
+    AICompanionCharSV.characterKey = s.characterKey
+    AICompanionSV.characters[s.characterKey] = {
+      player = s.player,
+      realm = s.realm,
+      class = s.class,
+      level = s.level,
+      ilvl = s.ilvl,
+      zone = s.zone,
+      mapId = s.mapId,
+      lastSeen = s.ts,
+      lastSyncReason = s.syncReason,
+    }
+  end
+end
+
 local f = CreateFrame("Frame")
 f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("PLAYER_LOGIN")
+f:RegisterEvent("PLAYER_LOGOUT")
 f:SetScript("OnEvent", function(_, event, arg1)
   if event == "ADDON_LOADED" and arg1 == "AICompanion" then
     loadLocale()
@@ -31,7 +60,7 @@ f:SetScript("OnEvent", function(_, event, arg1)
       rest = rest or ""
 
       if command == "export" then
-        AICompanion.ExportSession()
+        AICompanion.ExportSession("manual")
         print("|cff66ccffAICompanion:|r Export abgeschlossen. /reload ausführen, nachdem die Analyse lief.")
       elseif command == "tips" then
         AICompanion.UI.ShowReco(AICompanion.ResolveCharacterKey(rest))
@@ -55,6 +84,9 @@ f:SetScript("OnEvent", function(_, event, arg1)
     end
     AICompanion.UI.Init()
     AICompanion.UI.MaybeShowRecoOnLogin()
+    AICompanion.QueueAutoSync("login", true)
+  elseif event == "PLAYER_LOGOUT" then
+    AICompanion.ExportSession("logout")
   end
 end)
 
@@ -105,37 +137,32 @@ function AICompanion.ListKnownCharacters()
   end
 end
 
-function AICompanion.ExportSession()
-  local s = AICompanion.Data and AICompanion.Data.BuildSnapshot and AICompanion.Data.BuildSnapshot() or {}
-  if not s.characterKey and AICompanion.Data and AICompanion.Data.BuildCharacterKey then
-    s.characterKey = AICompanion.Data.BuildCharacterKey()
-  end
-  table.insert(AICompanionSV.sessions, s)
+function AICompanion.ExportSession(reason)
+  exportSnapshot(reason)
+end
 
-  if s.characterKey then
-    AICompanionCharSV.characterKey = s.characterKey
-    AICompanionSV.characters[s.characterKey] = {
-      player = s.player,
-      realm = s.realm,
-      class = s.class,
-      level = s.level,
-      ilvl = s.ilvl,
-      zone = s.zone,
-      mapId = s.mapId,
-      lastSeen = s.ts,
-    }
+function AICompanion.QueueAutoSync(reason, immediate)
+  pendingAutoSyncReason = reason or "auto"
+  if autoSyncTimer then
+    autoSyncTimer:Cancel()
+    autoSyncTimer = nil
   end
+
+  local delay = immediate and 1 or AUTO_SYNC_THROTTLE_SEC
+  autoSyncTimer = C_Timer.NewTimer(delay, function()
+    exportSnapshot(pendingAutoSyncReason or "auto")
+    autoSyncTimer = nil
+  end)
 end
 
 -- Export-Hinweise bei Ereignissen
 local e = CreateFrame("Frame")
 e:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+e:RegisterEvent("QUEST_ACCEPTED")
 e:RegisterEvent("QUEST_TURNED_IN")
+e:RegisterEvent("QUEST_REMOVED")
 e:RegisterEvent("PLAYER_ENTERING_WORLD")
+e:RegisterEvent("SKILL_LINES_CHANGED")
 e:SetScript("OnEvent", function(_, evt)
-  local L = AICompanion.L or {}
-  print("|cff66ccffAICompanion:|r", (L.HINT_EXPORT or "Export möglich:"), evt, "- /aicoach export oder Button.")
-  if AICompanion and AICompanion.UI and AICompanion.UI.ShowExportPrompt then
-    AICompanion.UI.ShowExportPrompt(evt)
-  end
+  AICompanion.QueueAutoSync(evt)
 end)
