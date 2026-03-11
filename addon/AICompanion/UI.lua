@@ -49,10 +49,12 @@ function AICompanion.UI.Init()
   btn:SetSize(200, 24)
   btn:SetText("Jetzt exportieren")
   btn:SetScript("OnClick", function()
-    if AICompanion.ExportSession then
-      AICompanion.ExportSession()
+    if AICompanion.SyncNow then
+      AICompanion.SyncNow("manual")
+    elseif AICompanion.ExportSession then
+      AICompanion.ExportSession("manual")
+      ReloadUI()
     end
-    ReloadUI()
   end)
   panel.exportBtn = btn
 
