@@ -38,8 +38,6 @@ end
 
 local f = CreateFrame("Frame")
 f:RegisterEvent("ADDON_LOADED")
-f:RegisterEvent("PLAYER_LOGIN")
-f:RegisterEvent("PLAYER_LOGOUT")
 f:SetScript("OnEvent", function(_, event, arg1)
   if event == "ADDON_LOADED" and arg1 == "AICompanion" then
     loadLocale()
@@ -77,12 +75,6 @@ f:SetScript("OnEvent", function(_, event, arg1)
         print("|cff66ccffAICompanion:|r /aicoach export | /aicoach syncnow | /aicoach tips [char] | /aicoach chars | /aicoach select <char>")
       end
     end
-  elseif event == "PLAYER_LOGIN" then
-    if AICompanion.Data and AICompanion.Data.BuildCharacterKey then
-      AICompanionCharSV.characterKey = AICompanion.Data.BuildCharacterKey()
-    end
-  elseif event == "PLAYER_LOGOUT" then
-    AICompanion.ExportSession("logout")
   end
 end)
 
