@@ -2,10 +2,6 @@ AICompanion = AICompanion or {}
 AICompanionSV = AICompanionSV or {}
 AICompanionCharSV = AICompanionCharSV or {}
 
-local AUTO_SYNC_THROTTLE_SEC = 15
-local autoSyncTimer = nil
-local pendingAutoSyncReason = nil
-
 -- Minimaler Locale-Loader (fallback enUS)
 local function loadLocale()
   local ok, L = pcall(function() return AICompanionLocale end)
@@ -85,7 +81,6 @@ f:SetScript("OnEvent", function(_, event, arg1)
     if AICompanion.Data and AICompanion.Data.BuildCharacterKey then
       AICompanionCharSV.characterKey = AICompanion.Data.BuildCharacterKey()
     end
-    AICompanion.QueueAutoSync("login", true)
   elseif event == "PLAYER_LOGOUT" then
     AICompanion.ExportSession("logout")
   end
@@ -141,29 +136,3 @@ end
 function AICompanion.ExportSession(reason)
   exportSnapshot(reason)
 end
-
-function AICompanion.QueueAutoSync(reason, immediate)
-  pendingAutoSyncReason = reason or "auto"
-  if autoSyncTimer then
-    autoSyncTimer:Cancel()
-    autoSyncTimer = nil
-  end
-
-  local delay = immediate and 1 or AUTO_SYNC_THROTTLE_SEC
-  autoSyncTimer = C_Timer.NewTimer(delay, function()
-    exportSnapshot(pendingAutoSyncReason or "auto")
-    autoSyncTimer = nil
-  end)
-end
-
--- Export-Hinweise bei Ereignissen
-local e = CreateFrame("Frame")
-e:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-e:RegisterEvent("QUEST_ACCEPTED")
-e:RegisterEvent("QUEST_TURNED_IN")
-e:RegisterEvent("QUEST_REMOVED")
-e:RegisterEvent("PLAYER_ENTERING_WORLD")
-e:RegisterEvent("SKILL_LINES_CHANGED")
-e:SetScript("OnEvent", function(_, evt)
-  AICompanion.QueueAutoSync(evt)
-end)
