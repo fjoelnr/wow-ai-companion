@@ -362,6 +362,7 @@ def main() -> None:
     logs_dir = COMBATLOG_DIR or os.path.dirname(COMBATLOG_PATH)
     tail = Tailer(COMBATLOG_PATH, logs_dir=logs_dir)
     pending_session: dict | None = None
+    known_sessions: dict[str, dict] = {}
     pending_raw_sv: str = ""
     retry_session_at = 0.0
     retry_reco_at = 0.0
@@ -379,16 +380,40 @@ def main() -> None:
                     sv = parse_sv(raw)
                     sessions = sv.get("sessions", [])
                     if isinstance(sessions, list) and sessions:
-                        pending_session = normalize_session(sessions[-1])
-                        pending_raw_sv = raw
-                        retry_session_at = 0.0
-                        retry_reco_at = 0.0
+                        latest_by_character: dict[str, dict] = {}
+                        for raw_session in sessions:
+                            if not isinstance(raw_session, dict):
+                                continue
+                            session = normalize_session(raw_session)
+                            character_key = session.get("characterKey")
+                            if not character_key:
+                                continue
+                            current = latest_by_character.get(character_key)
+                            current_ts = int((current or {}).get("ts") or 0)
+                            session_ts = int(session.get("ts") or 0)
+                            if not current or session_ts >= current_ts:
+                                latest_by_character[character_key] = session
+
+                        if latest_by_character:
+                            known_sessions = latest_by_character
+                            pending_session = max(
+                                latest_by_character.values(),
+                                key=lambda s: int(s.get("ts") or 0),
+                            )
+                            pending_raw_sv = raw
+                            retry_session_at = 0.0
+                            retry_reco_at = 0.0
         except Exception as exc:
             log.error("SV-Fehler: %s", exc)
 
         now = time.time()
-        if pending_session and now >= retry_session_at:
-            if mcp_push_session(pending_session):
+        if known_sessions and now >= retry_session_at:
+            all_ok = True
+            for session in known_sessions.values():
+                if not mcp_push_session(session):
+                    all_ok = False
+                    break
+            if all_ok:
                 retry_session_at = float("inf")
                 session_backoff = 5.0
             else:
