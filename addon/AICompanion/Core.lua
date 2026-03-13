@@ -85,8 +85,6 @@ f:SetScript("OnEvent", function(_, event, arg1)
     if AICompanion.Data and AICompanion.Data.BuildCharacterKey then
       AICompanionCharSV.characterKey = AICompanion.Data.BuildCharacterKey()
     end
-    AICompanion.UI.Init()
-    AICompanion.UI.MaybeShowRecoOnLogin()
     AICompanion.QueueAutoSync("login", true)
   elseif event == "PLAYER_LOGOUT" then
     AICompanion.ExportSession("logout")
