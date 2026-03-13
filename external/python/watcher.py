@@ -24,8 +24,6 @@ logging.basicConfig(
 log = logging.getLogger("watcher")
 
 _HTTP = requests.Session()
-_MARKER_START = "-- AICOACH_MANAGED_RECO_START"
-_MARKER_END = "-- AICOACH_MANAGED_RECO_END"
 
 
 class LuaParser:
@@ -197,42 +195,54 @@ def derive_character_key(session: dict) -> str | None:
     return f"{player}-{str(realm).replace(' ', '')}"
 
 
-def managed_reco_block(character_key: str, tips: list[str], ts_value) -> str:
-    key_literal = json.dumps(character_key, ensure_ascii=False)
-    lines = [
-        _MARKER_START,
-        "AICompanionSV = AICompanionSV or {}",
-        "AICompanionSV.recommendations = AICompanionSV.recommendations or {}",
-        f"AICompanionSV.recommendations[{key_literal}] = {{",
-        f'  ["tips"] = {{',
-    ]
-    for tip in tips:
-        lines.append(f"    {json.dumps(tip, ensure_ascii=False)},")
-    lines.extend(
-        [
-            "  },",
-            f'  ["updatedAt"] = {int(ts_value or time.time())},',
-            "}",
-            "AICompanionCharSV = AICompanionCharSV or {}",
-            f'AICompanionCharSV["pendingReco"] = AICompanionSV.recommendations[{key_literal}]["tips"]',
-            _MARKER_END,
-            "",
-        ]
-    )
-    return "\n".join(lines)
+def to_lua(value, indent: int = 0) -> str:
+    pad = "  " * indent
+    next_pad = "  " * (indent + 1)
+    if value is None:
+        return "nil"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, list):
+        if not value:
+            return "{ }"
+        lines = ["{"]
+        for item in value:
+            lines.append(f"{next_pad}{to_lua(item, indent + 1)},")
+        lines.append(f"{pad}}}")
+        return "\n".join(lines)
+    if isinstance(value, dict):
+        if not value:
+            return "{ }"
+        lines = ["{"]
+        for key, item in value.items():
+            key_lit = json.dumps(str(key), ensure_ascii=False)
+            lines.append(f'{next_pad}[{key_lit}] = {to_lua(item, indent + 1)},')
+        lines.append(f"{pad}}}")
+        return "\n".join(lines)
+    return json.dumps(str(value), ensure_ascii=False)
 
 
 def write_reco(base_text: str, character_key: str, tips: list[str], ts_value) -> None:
-    content = re.sub(
-        rf"\n?{re.escape(_MARKER_START)}.*?{re.escape(_MARKER_END)}\n?",
-        "\n",
-        base_text,
-        flags=re.DOTALL,
-    ).rstrip()
-    block = managed_reco_block(character_key, tips, ts_value)
-    if content:
-        content += "\n\n"
-    pathlib.Path(SV_WRITE).write_text(content + block, encoding="utf-8")
+    sv = parse_sv(base_text)
+    if not isinstance(sv, dict):
+        log.error("Cannot update recommendations: SavedVariables parse failed")
+        return
+
+    sv["recommendations"] = sv.get("recommendations") or {}
+    if not isinstance(sv["recommendations"], dict):
+        sv["recommendations"] = {}
+
+    sv["recommendations"][character_key] = {
+        "tips": list(tips or []),
+        "updatedAt": int(ts_value or time.time()),
+    }
+
+    rendered = "AICompanionSV = " + to_lua(sv, 0) + "\n"
+    pathlib.Path(SV_WRITE).write_text(rendered, encoding="utf-8")
 
 
 def mcp_generate_tips(session: dict, tips_count: int) -> list[str]:
