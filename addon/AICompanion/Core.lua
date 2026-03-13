@@ -73,6 +73,7 @@ f:SetScript("OnEvent", function(_, event, arg1)
         end
       else
         print("|cff66ccffAICompanion:|r /aicoach export | /aicoach syncnow | /aicoach tips [char] | /aicoach chars | /aicoach select <char>")
+        print("|cff66ccffAICompanion:|r Tipps werden aktuell im Chat ausgegeben (safe mode).")
       end
     end
   end

@@ -7,7 +7,6 @@
 ## SavedVariablesPerCharacter: AICompanionCharSV
 
 Core.lua
-Combat.lua
 Data.lua
 UI.lua
 Locales/enUS.lua
