@@ -13,14 +13,19 @@ FALLBACK = os.getenv("OLLAMA_FALLBACK_MODEL", "mistral-nemo")
 OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini")
 
-POST_PROMPT = """You are a concise WoW exploration, quest and profession coach.
-Return EXACTLY {n} bullet tips (<=160 chars) in the player's locale (field 'locale').
-Focus on quests, missed turn-ins, profession next steps, useful zone goals, rares and points of interest.
-Never suggest automation; textual tips only.
+POST_PROMPT = """You are a precise WoW quest and profession assistant.
+You must only use the provided data. Do not invent NPC names, locations, quest IDs, or rewards.
+Write in language: {lang_name}.
+Return EXACTLY {n} tips in strict JSON:
+{{"tips":["...","..."]}}
+Rules:
+- each tip <= 160 characters
+- actionable, concrete, non-automating advice
+- prioritize active quests, turn-ins, profession progression, and current zone goals
+- if data is missing, say that briefly instead of guessing
 DATA:
-```json
 {data}
-```"""
+"""
 
 def llm_local(prompt: str) -> str:
     r = requests.post(f"{OLLAMA}/api/generate",
@@ -37,7 +42,7 @@ def llm_local(prompt: str) -> str:
 def llm_api(prompt: str) -> str:
     headers = {"Authorization": f"Bearer {OPENAI_KEY}", "Content-Type": "application/json"}
     body = {"model": OPENAI_MODEL, "messages":[
-        {"role":"system","content":"You are a precise WoW coach. Only bullet tips."},
+        {"role":"system","content":"Return strict JSON only: {\"tips\":[...]} with concise grounded WoW tips."},
         {"role":"user","content": prompt}],
         "temperature":0.2}
     r = requests.post("https://api.openai.com/v1/chat/completions", json=body, headers=headers, timeout=60)
@@ -60,6 +65,148 @@ def to_bullets(text: str, n: int) -> List[str]:
             if m:
                 tips.append(m.group(1).strip())
     return tips[:n] if tips else []
+
+
+def locale_language_name(locale: str | None) -> str:
+    value = (locale or "deDE").lower()
+    if value.startswith("de"):
+        return "German"
+    if value.startswith("en"):
+        return "English"
+    return "German"
+
+
+def compact_session_for_prompt(data: Dict[str, Any]) -> Dict[str, Any]:
+    quests = data.get("activeQuests") or []
+    profs = data.get("professions") or []
+    compact_quests = []
+    for q in quests[:20]:
+        compact_quests.append({
+            "id": q.get("id"),
+            "title": q.get("title"),
+            "isComplete": q.get("isComplete"),
+        })
+    compact_profs = []
+    for p in profs[:8]:
+        compact_profs.append({
+            "name": p.get("name"),
+            "skillLevel": p.get("skillLevel"),
+            "maxLevel": p.get("maxLevel"),
+        })
+
+    return {
+        "locale": data.get("locale"),
+        "characterKey": data.get("characterKey"),
+        "player": data.get("player"),
+        "class": data.get("class"),
+        "level": data.get("level"),
+        "ilvl": data.get("ilvl"),
+        "zone": data.get("zone"),
+        "subZone": (data.get("location") or {}).get("subZone"),
+        "activeQuests": compact_quests,
+        "professions": compact_profs,
+    }
+
+
+def extract_tips(text: str, n: int) -> List[str]:
+    payload = text.strip()
+    try:
+        parsed = json.loads(payload)
+        if isinstance(parsed, dict) and isinstance(parsed.get("tips"), list):
+            tips = [str(x).strip() for x in parsed["tips"] if str(x).strip()]
+            return tips[:n]
+        if isinstance(parsed, list):
+            tips = [str(x).strip() for x in parsed if str(x).strip()]
+            return tips[:n]
+    except Exception:
+        pass
+    return to_bullets(text, n)
+
+
+def normalize_tip(text: str) -> str:
+    tip = re.sub(r"\s+", " ", str(text or "")).strip()
+    tip = tip.lstrip("-•* ").strip()
+    if len(tip) > 160:
+        tip = tip[:157].rstrip() + "..."
+    return tip
+
+
+def add_tokens(terms: List[str], text: Any) -> None:
+    if not isinstance(text, str):
+        return
+    value = text.strip().lower()
+    if not value:
+        return
+    terms.append(value)
+    for token in re.findall(r"[a-zA-Z0-9äöüÄÖÜß]{4,}", value):
+        terms.append(token.lower())
+
+
+def build_grounding_terms(session: Dict[str, Any]) -> List[str]:
+    terms = []
+    zone = session.get("zone")
+    sub_zone = (session.get("location") or {}).get("subZone")
+    add_tokens(terms, zone)
+    add_tokens(terms, sub_zone)
+    for q in session.get("activeQuests") or []:
+        qid = q.get("id")
+        title = q.get("title")
+        if qid is not None:
+            terms.append(str(qid).lower())
+        add_tokens(terms, title)
+    for p in session.get("professions") or []:
+        add_tokens(terms, p.get("name"))
+    return terms
+
+
+def is_grounded_tip(tip: str, terms: List[str]) -> bool:
+    if not terms:
+        return True
+    lower_tip = tip.lower()
+    for term in terms:
+        if term and term in lower_tip:
+            return True
+    return False
+
+
+def fallback_tips(session: Dict[str, Any], n: int, locale: str) -> List[str]:
+    is_de = (locale or "deDE").lower().startswith("de")
+    tips: List[str] = []
+    quests = session.get("activeQuests") or []
+    professions = session.get("professions") or []
+    zone = session.get("zone") or "deiner Zone"
+
+    complete_quests = [q for q in quests if q.get("isComplete")]
+    open_quests = [q for q in quests if not q.get("isComplete")]
+
+    if complete_quests:
+        q = complete_quests[0]
+        if is_de:
+            tips.append(f'Gib die fertige Quest "{q.get("title", q.get("id"))}" ab, bevor du neue Aufgaben startest.')
+        else:
+            tips.append(f'Turn in completed quest "{q.get("title", q.get("id"))}" before picking new tasks.')
+    if open_quests:
+        q = open_quests[0]
+        if is_de:
+            tips.append(f'Fokussiere als Nächstes "{q.get("title", q.get("id"))}" für klaren Quest-Fortschritt.')
+        else:
+            tips.append(f'Focus next on "{q.get("title", q.get("id"))}" for clean quest progress.')
+    if professions:
+        p = professions[0]
+        cur = p.get("skillLevel", 0)
+        maxv = p.get("maxLevel", 0)
+        if is_de:
+            tips.append(f'Berufsschritt: {p.get("name","Beruf")} von {cur}/{maxv} auf den nächsten Meilenstein pushen.')
+        else:
+            tips.append(f'Profession step: push {p.get("name","profession")} from {cur}/{maxv} to next milestone.')
+    if is_de:
+        tips.append(f'In {zone} zuerst Questziele und Abgabepunkte abarbeiten, dann Nebenaktivitäten.')
+    else:
+        tips.append(f'In {zone}, clear quest objectives and turn-ins first, then side activities.')
+
+    while len(tips) < n:
+        tips.append("Keine zusätzlichen sicheren Hinweise aus den aktuellen Daten ableitbar.")
+    return [normalize_tip(t) for t in tips[:n]]
 
 class Session(BaseModel):
     ts: Optional[int] = None
@@ -189,12 +336,31 @@ def generate_tips(req: GenReq):
     data = req.session.dict(by_alias=True)
     data["characterKey"] = data.get("characterKey") or _character_key(data)
     merged = {**(data or {}), "locale": loc}
-    prompt = POST_PROMPT.format(n=req.tips, data=json.dumps(merged, ensure_ascii=False))
+    compact = compact_session_for_prompt(merged)
+    prompt = POST_PROMPT.format(
+        n=req.tips,
+        lang_name=locale_language_name(loc),
+        data=json.dumps(compact, ensure_ascii=False),
+    )
     if MODE == "api" and OPENAI_KEY:
         out = llm_api(prompt)
     else:
         out = llm_local(prompt)
-    tips = to_bullets(out, req.tips) or ["Keine Tipps erzeugt."]
+    candidate_tips = [normalize_tip(t) for t in extract_tips(out, req.tips) if normalize_tip(t)]
+    terms = build_grounding_terms(merged)
+    grounded = [t for t in candidate_tips if is_grounded_tip(t, terms)]
+    tips = grounded[:req.tips]
+    if not tips and candidate_tips:
+        tips = candidate_tips[:req.tips]
+    if len(tips) < req.tips:
+        for tip in fallback_tips(merged, req.tips, loc):
+            if len(tips) >= req.tips:
+                break
+            if tip not in tips:
+                tips.append(tip)
+    while len(tips) < req.tips:
+        tips.append("Keine zusätzlichen sicheren Hinweise aus den aktuellen Daten ableitbar.")
+    tips = tips[:req.tips]
     return GenResp(tips=tips)
 
 @app.post("/tools/ingest_combat_event")
