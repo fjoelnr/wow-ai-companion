@@ -354,22 +354,39 @@ def get_session(character_key: str | None = None):
 
 @app.get("/api/characters")
 def list_characters():
-    characters = []
-    for key, session in sorted(
+    sorted_items = sorted(
         SESSIONS_BY_CHARACTER.items(),
         key=lambda item: item[1].get("ts") or 0,
         reverse=True,
-    ):
-      characters.append({
-          "characterKey": key,
-          "player": session.get("player"),
-          "realm": session.get("realm"),
-          "class": session.get("class"),
-          "level": session.get("level"),
-          "ilvl": session.get("ilvl"),
-          "zone": session.get("zone"),
-          "ts": session.get("ts"),
-      })
+    )
+
+    players_with_realm = set()
+    for _, session in sorted_items:
+        player = (session.get("player") or "").strip().lower()
+        realm = (session.get("realm") or "").strip()
+        if player and realm:
+            players_with_realm.add(player)
+
+    characters = []
+    for key, session in sorted_items:
+        player_raw = (session.get("player") or "").strip()
+        player = player_raw.lower()
+        realm = (session.get("realm") or "").strip()
+
+        # Hide legacy no-realm entries when the same player already exists with realm.
+        if player and not realm and player in players_with_realm:
+            continue
+
+        characters.append({
+            "characterKey": key,
+            "player": session.get("player"),
+            "realm": session.get("realm"),
+            "class": session.get("class"),
+            "level": session.get("level"),
+            "ilvl": session.get("ilvl"),
+            "zone": session.get("zone"),
+            "ts": session.get("ts"),
+        })
     return characters
 
 

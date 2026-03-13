@@ -16,6 +16,7 @@ COMBATLOG_DIR = os.getenv("COMBATLOG_DIR", "")
 MCP_URL = os.getenv("MCP_URL", "http://mcp:8080")
 TIPS_COUNT = int(os.getenv("TIPS_COUNT", "5"))
 POLL_INTERVAL = float(os.getenv("POLL_INTERVAL", "2.0"))
+FULL_SYNC_INTERVAL = float(os.getenv("FULL_SYNC_INTERVAL", "30.0"))
 
 logging.basicConfig(
     level=os.getenv("WATCHER_LOG_LEVEL", "INFO"),
@@ -414,7 +415,7 @@ def main() -> None:
                     all_ok = False
                     break
             if all_ok:
-                retry_session_at = float("inf")
+                retry_session_at = now + max(10.0, FULL_SYNC_INTERVAL)
                 session_backoff = 5.0
             else:
                 retry_session_at = now + session_backoff
