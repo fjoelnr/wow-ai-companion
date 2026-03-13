@@ -44,6 +44,10 @@ f:SetScript("OnEvent", function(_, event, arg1)
     AICompanionSV.sessions = AICompanionSV.sessions or {}
     AICompanionSV.characters = AICompanionSV.characters or {}
     AICompanionSV.recommendations = AICompanionSV.recommendations or {}
+    AICompanionSV.settings = AICompanionSV.settings or {}
+    if AICompanionSV.settings.uiEnabled == nil then
+      AICompanionSV.settings.uiEnabled = false
+    end
     AICompanionCharSV.pendingReco = AICompanionCharSV.pendingReco or {}
     AICompanionCharSV.selectedCharacter = AICompanionCharSV.selectedCharacter or nil
     AICompanionCharSV.characterKey = AICompanionCharSV.characterKey or nil
@@ -61,6 +65,18 @@ f:SetScript("OnEvent", function(_, event, arg1)
         print("|cff66ccffAICompanion:|r Snapshot geschrieben. Bitte /reload ausführen, damit WoW die Daten auf Disk speichert.")
       elseif command == "tips" then
         AICompanion.UI.ShowReco(AICompanion.ResolveCharacterKey(rest))
+      elseif command == "ui" then
+        local opt = (rest or ""):lower()
+        if opt == "on" then
+          AICompanionSV.settings.uiEnabled = true
+          print("|cff66ccffAICompanion:|r UI-Fenster aktiviert.")
+        elseif opt == "off" then
+          AICompanionSV.settings.uiEnabled = false
+          print("|cff66ccffAICompanion:|r UI-Fenster deaktiviert (Chat-only).")
+        else
+          local state = AICompanionSV.settings.uiEnabled and "on" or "off"
+          print("|cff66ccffAICompanion:|r UI-Status:", state, "- nutze /aicoach ui on|off")
+        end
       elseif command == "chars" then
         AICompanion.ListKnownCharacters()
       elseif command == "select" then
@@ -72,8 +88,7 @@ f:SetScript("OnEvent", function(_, event, arg1)
           print("|cff66ccffAICompanion:|r Kein Charakter gefunden für:", rest)
         end
       else
-        print("|cff66ccffAICompanion:|r /aicoach export | /aicoach syncnow | /aicoach tips [char] | /aicoach chars | /aicoach select <char>")
-        print("|cff66ccffAICompanion:|r Tipps werden aktuell im Chat ausgegeben (safe mode).")
+        print("|cff66ccffAICompanion:|r /aicoach export | /aicoach syncnow | /aicoach tips [char] | /aicoach ui on|off | /aicoach chars | /aicoach select <char>")
       end
     end
   end
