@@ -31,15 +31,35 @@ local function styleFrame(frame)
   bg:SetColorTexture(0.05, 0.05, 0.08, 0.96)
   frame.bg = bg
 
-  local border = CreateFrame("Frame", nil, frame)
-  border:SetAllPoints(frame)
-  border:SetBackdrop({
-    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    edgeSize = 14,
-  })
-  border:SetBackdropBorderColor(0.4, 0.4, 0.45, 1)
-  border:EnableMouse(false)
-  frame.border = border
+  local borderColor = { 0.4, 0.4, 0.45, 1 }
+  local top = frame:CreateTexture(nil, "BORDER")
+  top:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+  top:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
+  top:SetHeight(1)
+  top:SetColorTexture(unpack(borderColor))
+
+  local bottom = frame:CreateTexture(nil, "BORDER")
+  bottom:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0, 0)
+  bottom:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
+  bottom:SetHeight(1)
+  bottom:SetColorTexture(unpack(borderColor))
+
+  local left = frame:CreateTexture(nil, "BORDER")
+  left:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+  left:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0, 0)
+  left:SetWidth(1)
+  left:SetColorTexture(unpack(borderColor))
+
+  local right = frame:CreateTexture(nil, "BORDER")
+  right:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
+  right:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
+  right:SetWidth(1)
+  right:SetColorTexture(unpack(borderColor))
+
+  frame.borderTop = top
+  frame.borderBottom = bottom
+  frame.borderLeft = left
+  frame.borderRight = right
 end
 
 local function createTitle(frame, text)
