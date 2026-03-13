@@ -169,6 +169,65 @@ def is_grounded_tip(tip: str, terms: List[str]) -> bool:
     return False
 
 
+SPEC_ROLE_MAP: Dict[int, str] = {
+    # Tank
+    73: "tank", 250: "tank", 268: "tank", 66: "tank", 581: "tank", 104: "tank",
+    # Healer
+    65: "healer", 256: "healer", 257: "healer", 264: "healer", 270: "healer",
+    105: "healer", 1468: "healer",
+    # DPS
+    71: "dps", 72: "dps", 253: "dps", 254: "dps", 255: "dps", 251: "dps",
+    252: "dps", 577: "dps", 102: "dps", 103: "dps", 1467: "dps", 62: "dps",
+    63: "dps", 64: "dps", 269: "dps", 70: "dps", 258: "dps", 259: "dps",
+    260: "dps", 261: "dps", 262: "dps", 263: "dps", 265: "dps", 266: "dps",
+    267: "dps", 1473: "dps",
+}
+
+CLASS_ROLE_FALLBACK: Dict[str, str] = {
+    "warrior": "dps",
+    "paladin": "dps",
+    "hunter": "dps",
+    "rogue": "dps",
+    "priest": "healer",
+    "death knight": "dps",
+    "shaman": "dps",
+    "mage": "dps",
+    "warlock": "dps",
+    "monk": "dps",
+    "druid": "dps",
+    "demon hunter": "dps",
+    "evoker": "dps",
+}
+
+
+def infer_role(session: Dict[str, Any]) -> str | None:
+    spec_id = session.get("specId")
+    if isinstance(spec_id, int) and spec_id in SPEC_ROLE_MAP:
+        return SPEC_ROLE_MAP[spec_id]
+    raw_class = str(session.get("class") or "").strip().lower().replace("_", " ")
+    if raw_class in CLASS_ROLE_FALLBACK:
+        return CLASS_ROLE_FALLBACK[raw_class]
+    return None
+
+
+def class_role_tip(session: Dict[str, Any], locale: str) -> str | None:
+    is_de = (locale or "deDE").lower().startswith("de")
+    role = infer_role(session)
+    if not role:
+        return None
+    if is_de:
+        if role == "tank":
+            return "Als Tank: Def-CDs für große Pulls/Elite-Mobs einplanen und zuerst gefährliche Caster markieren."
+        if role == "healer":
+            return "Als Heiler: Mana für Kampfspitzen sparen und Questkämpfe mit Def-CD/Utility vorplanen."
+        return "Als DD: Prioritätsziel zuerst fokussieren, CDs in kurzen Fenstern bündeln und Downtime minimieren."
+    if role == "tank":
+        return "As tank: plan defensives for big pulls/elites and mark dangerous casters first."
+    if role == "healer":
+        return "As healer: preserve mana for damage spikes and pre-plan defensives/utility for quest fights."
+    return "As DPS: focus priority targets first, stack burst CDs in short windows, and reduce downtime."
+
+
 def fallback_tips(session: Dict[str, Any], n: int, locale: str) -> List[str]:
     is_de = (locale or "deDE").lower().startswith("de")
     tips: List[str] = []
@@ -352,6 +411,9 @@ def generate_tips(req: GenReq):
     tips = grounded[:req.tips]
     if not tips and candidate_tips:
         tips = candidate_tips[:req.tips]
+    role_tip = normalize_tip(class_role_tip(merged, loc))
+    if role_tip and len(tips) < req.tips and role_tip not in tips:
+        tips.append(role_tip)
     if len(tips) < req.tips:
         for tip in fallback_tips(merged, req.tips, loc):
             if len(tips) >= req.tips:
