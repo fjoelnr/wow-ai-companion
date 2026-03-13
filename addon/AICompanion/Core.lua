@@ -36,6 +36,30 @@ local function exportSnapshot(reason)
   end
 end
 
+local function sortedCharacterKeys()
+  local keys = {}
+  for key in pairs(AICompanionSV.characters or {}) do
+    table.insert(keys, key)
+  end
+  table.sort(keys, function(a, b)
+    local ia = AICompanionSV.characters[a] or {}
+    local ib = AICompanionSV.characters[b] or {}
+    return (ia.lastSeen or 0) > (ib.lastSeen or 0)
+  end)
+  return keys
+end
+
+local function getDefaultCharacterKey()
+  if AICompanionCharSV.selectedCharacter and AICompanionSV.characters[AICompanionCharSV.selectedCharacter] then
+    return AICompanionCharSV.selectedCharacter
+  end
+  if AICompanionCharSV.characterKey and AICompanionSV.characters[AICompanionCharSV.characterKey] then
+    return AICompanionCharSV.characterKey
+  end
+  local keys = sortedCharacterKeys()
+  return keys[1]
+end
+
 local f = CreateFrame("Frame")
 f:RegisterEvent("ADDON_LOADED")
 f:SetScript("OnEvent", function(_, event, arg1)
@@ -96,13 +120,16 @@ end)
 
 function AICompanion.ResolveCharacterKey(query)
   if not query or query == "" then
-    if AICompanionCharSV.selectedCharacter then
-      return AICompanionCharSV.selectedCharacter
-    end
-    return AICompanionCharSV.characterKey
+    return getDefaultCharacterKey()
   end
 
   local normalized = query:lower():gsub("%s+", "")
+  local asNumber = tonumber(query)
+  if asNumber then
+    local keys = sortedCharacterKeys()
+    return keys[asNumber]
+  end
+
   local exact = AICompanionSV.characters[query]
   if exact then
     return query
@@ -120,13 +147,17 @@ function AICompanion.ResolveCharacterKey(query)
 end
 
 function AICompanion.ListKnownCharacters()
-  local count = 0
-  for key, info in pairs(AICompanionSV.characters or {}) do
-    count = count + 1
+  local keys = sortedCharacterKeys()
+  local selected = getDefaultCharacterKey()
+  for i, key in ipairs(keys) do
+    local info = AICompanionSV.characters[key] or {}
+    local marker = (key == selected) and "*" or " "
     print(
       "|cff66ccffAICompanion:|r",
       string.format(
-        "%s | %s | Lvl %s | iLvl %s | %s",
+        "[%d]%s %s | %s | Lvl %s | iLvl %s | %s",
+        i,
+        marker,
         key,
         info.class or "?",
         info.level or "?",
@@ -136,7 +167,7 @@ function AICompanion.ListKnownCharacters()
     )
   end
 
-  if count == 0 then
+  if #keys == 0 then
     print("|cff66ccffAICompanion:|r Noch keine exportierten Charaktere bekannt.")
   end
 end
