@@ -1,0 +1,66 @@
+version: "3.9"
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ai-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_KEEP_ALIVE=5m
+    volumes:
+      - ollama_models:/root/.ollama
+    # GPU-Profile (genau eins aktivieren, sonst beide auskommentiert lassen):
+    # NVIDIA:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - capabilities: ["gpu"]
+    #           driver: "nvidia"
+    # AMD (ROCm):
+    # devices:
+    #   - /dev/kfd
+    #   - /dev/dri
+    # group_add:
+    #   - "video"
+
+  mcp:
+    build: ./mcp-server
+    container_name: ai-mcp
+    restart: unless-stopped
+    environment:
+      - LLM_MODE=local           # local|api
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=gpt-oss:20b
+      - OLLAMA_FALLBACK_MODEL=mistral:7b
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=gpt-5-mini
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./svshare:/svshare
+    depends_on:
+      - ollama
+
+  watcher:
+    build:
+      context: ./external/python
+      dockerfile: Dockerfile
+    container_name: ai-watcher
+    restart: unless-stopped
+    environment:
+      - SV_PATH=/svshare/WTF/Account/YOUR/SavedVariables/AICompanion.lua
+      - SV_WRITE=/svshare/WTF/Account/YOUR/SavedVariables/AICompanion.lua
+      - COMBATLOG_PATH=/svshare/Logs/WoWCombatLog.txt
+      - MCP_URL=http://mcp:8080
+      - TIPS_COUNT=5
+      - POLL_INTERVAL=2.0
+    volumes:
+      - ./svshare:/svshare
+    depends_on:
+      - mcp
+
+volumes:
+  ollama_models:

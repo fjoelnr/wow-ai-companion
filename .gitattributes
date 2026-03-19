@@ -1,0 +1,4 @@
+* text=auto eol=lf
+*.lua text
+*.py  text
+*.md  text

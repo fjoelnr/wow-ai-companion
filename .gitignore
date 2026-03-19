@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+dist/
+build/
+
+# Node / general
+node_modules/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Packaging
+*.zip
+
+# Editors
+.idea/
+.vscode/
+
+# Local shares (nicht ins Repo)
+svshare/

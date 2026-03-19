@@ -1,0 +1,13 @@
+## Interface: 11505
+## Title: AI Companion (Coach)
+## Notes: Post-Fight/Exploration Tipps (keine Automatisierung)
+## Author: Fjölnir & Team
+## Version: 0.1.0
+## SavedVariables: AICompanionSV
+## SavedVariablesPerCharacter: AICompanionCharSV
+
+Core.lua
+Combat.lua
+UI.lua
+Locales/enUS.lua
+Locales/deDE.lua
